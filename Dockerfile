@@ -10,18 +10,14 @@ COPY package.json ./
 # Install ALL dependencies (including devDependencies needed for build)
 RUN npm install
 
-# Copy source code and files
+# Copy source code files
 COPY . .
 
-# Run build script (Builds frontend and compiles server.ts to dist/server.cjs)
+# Run build process
 RUN npm run build
 
-# Set production environment
-ENV NODE_ENV=production
-ENV PORT=3000
-
-# Expose port (Render overrides this with $PORT anyway, but it's good practice)
+# Expose server port
 EXPOSE 3000
 
-# Start command
-CMD ["npm", "run", "start"]
+# Start server
+CMD ["npm", "start"]
