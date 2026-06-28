@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { EventData, UserProfile, ScheduleEvent } from '../types';
 import { BEM_MOCK_FILES } from '../data';
-import { Shield, LogIn, UploadCloud, RefreshCw, FileText, CheckCircle, Clock, AlertTriangle, AlertCircle, FileCode, Play, LogOut, Code, Download, Megaphone, Copy, ExternalLink, Share2 } from 'lucide-react';
+import { Shield, LogIn, UploadCloud, RefreshCw, FileText, CheckCircle, Clock, AlertTriangle, AlertCircle, FileCode, Play, LogOut, Code, Download, Megaphone, Copy, ExternalLink, Share2, Eye, EyeOff } from 'lucide-react';
 
 interface ManagerDashboardProps {
   event: EventData;
@@ -30,6 +30,7 @@ export default function ManagerDashboard({
 }: ManagerDashboardProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<{ text: string; success: boolean } | null>(null);
@@ -196,6 +197,12 @@ export default function ManagerDashboard({
         )}
 
         <form onSubmit={handleLoginSubmit} className="space-y-3 text-xs" autoComplete="off">
+          {/* Elementos ocultos para desativar a sugestão/preenchimento automático do navegador */}
+          <div className="absolute -top-40 -left-40 h-0 w-0 overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
+            <input type="text" name="username_fake" tabIndex={-1} autoComplete="off" />
+            <input type="password" name="password_fake" tabIndex={-1} autoComplete="off" />
+          </div>
+
           <div>
             <label className="block text-gray-700 font-medium mb-1">Usuário Operador</label>
             <input
@@ -203,7 +210,7 @@ export default function ManagerDashboard({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Ex: admin"
-              autoComplete="off"
+              autoComplete="one-time-code"
               className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500 transition-all"
               required
             />
@@ -211,15 +218,25 @@ export default function ManagerDashboard({
 
           <div>
             <label className="block text-gray-700 font-medium mb-1">Senha de Entrada</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Sua senha de acesso"
-              autoComplete="new-password"
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500 transition-all"
-              required
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Sua senha de acesso"
+                autoComplete="new-password"
+                style={{ WebkitTextSecurity: showPassword ? 'none' : 'disc' } as React.CSSProperties}
+                className="w-full pl-3 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500 transition-all"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none cursor-pointer"
+              >
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
           </div>
 
           <button

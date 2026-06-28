@@ -1204,16 +1204,25 @@ while ($true) {
 
 // START MAIN ASYNC SERVER FUNCTION FOR VITE SERVICE IN DEV OR PROD
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production" || process.env.RENDER === "true";
+  if (!isProduction) {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    // Servir arquivos estáticos (CSS, JS, imagens) com cache de 1 dia (estão hasheados)
+    app.use(express.static(distPath, {
+      maxAge: "1d",
+      index: false
+    }));
+    // Servir o index.html com cabeçalhos de controle de cache para evitar cache no navegador
     app.get("*", (req, res) => {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
