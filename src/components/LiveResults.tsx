@@ -892,14 +892,14 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     <tbody className="divide-y divide-slate-100 bg-white">
                                       {sortedAthletes.map((ath, idx) => {
                                         const numPlace = getNumericPlace(ath.place);
-                                        const rankInt = numPlace !== null 
-                                          ? numPlace 
-                                          : (hasAnyNumericPlace ? null : idx + 1);
+                                        // We only show placements and rankings if there actually are numeric results published for this group
+                                        const rankInt = numPlace;
 
-                                        const isFirst = rankInt === 1;
-                                        const isSecond = rankInt === 2;
-                                        const isThird = rankInt === 3;
-                                        const isPodium = rankInt !== null && rankInt <= 3;
+                                        const showTrophies = resultsMode === 'overall' && hasAnyNumericPlace;
+                                        const isFirst = showTrophies && rankInt === 1;
+                                        const isSecond = showTrophies && rankInt === 2;
+                                        const isThird = showTrophies && rankInt === 3;
+                                        const isPodium = showTrophies && rankInt !== null && rankInt <= 3;
                                         const isTransferring = ath.transfer && ath.transfer.trim() !== "";
 
                                         return (
@@ -1183,14 +1183,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                   {sortedAthletes.map((ath, idx) => {
                                     const numPlace = getNumericPlace(ath.place);
-                                    const rankInt = numPlace !== null 
-                                      ? numPlace 
-                                      : (hasAnyNumericPlace ? null : idx + 1);
+                                    const rankInt = numPlace;
 
-                                    const isPodium = rankInt !== null && rankInt <= 3;
-                                    const isFirst = rankInt === 1;
-                                    const isSecond = rankInt === 2;
-                                    const isThird = rankInt === 3;
+                                    const showTrophies = resultsMode === 'overall' && hasAnyNumericPlace;
+                                    const isFirst = showTrophies && rankInt === 1;
+                                    const isSecond = showTrophies && rankInt === 2;
+                                    const isThird = showTrophies && rankInt === 3;
+                                    const isPodium = showTrophies && rankInt !== null && rankInt <= 3;
                                     const isTransferring = ath.transfer && ath.transfer.trim() !== "";
 
                                     return (

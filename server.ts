@@ -728,6 +728,36 @@ function getFriendlyTransferText(code?: string): string {
   return `Avança de Fase (${upper})`;
 }
 
+// Robust JSON sanitizer to handle BOM, comments, trailing commas, missing quotes, single quotes etc.
+function cleanJsonString(str: string): string {
+  let clean = str.trim();
+  
+  // Remove UTF-8 BOM
+  clean = clean.replace(/^\uFEFF/, "");
+
+  // Remove Javascript variable assignment (e.g., "var x = { ... }")
+  clean = clean.replace(/^(?:var|const|let)\s+\w+\s*=\s*/i, "");
+  if (clean.endsWith(";")) {
+    clean = clean.slice(0, -1).trim();
+  }
+
+  // Remove block comments /* ... */
+  clean = clean.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  // Remove single-line comments // ...
+  clean = clean.replace(/(?:^|[^:])\/\/.*$/gm, (match) => {
+    return match.charAt(0) === '/' ? '' : match.charAt(0);
+  });
+
+  // Remove trailing commas before } or ]
+  clean = clean.replace(/,\s*([}\]])/g, "$1");
+
+  // Fix unquoted keys
+  clean = clean.replace(/([{,]\s*)([a-zA-Z0-9_$]+)\s*:/g, '$1"$2":');
+
+  return clean;
+}
+
 // Sync File Uploader (Accepts both JSON content string, JSON Object, or HTML string)
 app.post("/api/upload-bem", (req, res) => {
   try {
@@ -756,8 +786,21 @@ app.post("/api/upload-bem", (req, res) => {
     let reportParsedType = "Relatório Importado";
 
     // Detect if content is JSON
-    if (typeof content === "object" || (typeof content === "string" && content.trim().startsWith("{"))) {
-      let jsonObj = typeof content === "object" ? content : JSON.parse(content);
+    if (typeof content === "object" || (typeof content === "string" && (content.trim().startsWith("{") || content.trim().startsWith("[")))) {
+      let jsonObj;
+      if (typeof content === "object") {
+        jsonObj = content;
+      } else {
+        const cleanContent = cleanJsonString(content);
+        try {
+          jsonObj = JSON.parse(cleanContent);
+        } catch (err: any) {
+          console.error("Erro ao analisar JSON limpo:", err);
+          return res.status(400).json({ 
+            error: `Erro no servidor: JSON inválido (${err.message}). Verifique se o arquivo exportado pelo BEM possui caracteres inválidos.` 
+          });
+        }
+      }
       currentState = parseBEMJson(jsonObj, currentState, fileLabel);
       reportParsedType = jsonObj.ReportType || "JSON BEM";
       parsed = true;

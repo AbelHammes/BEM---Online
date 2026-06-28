@@ -195,7 +195,7 @@ export default function ManagerDashboard({
           </div>
         )}
 
-        <form onSubmit={handleLoginSubmit} className="space-y-3 text-xs">
+        <form onSubmit={handleLoginSubmit} className="space-y-3 text-xs" autoComplete="off">
           <div>
             <label className="block text-gray-700 font-medium mb-1">Usuário Operador</label>
             <input
@@ -203,6 +203,7 @@ export default function ManagerDashboard({
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Ex: admin"
+              autoComplete="off"
               className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500 transition-all"
               required
             />
@@ -215,6 +216,7 @@ export default function ManagerDashboard({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Sua senha de acesso"
+              autoComplete="new-password"
               className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500 transition-all"
               required
             />
