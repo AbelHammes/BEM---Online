@@ -599,18 +599,28 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
             const isGeneralResultSub = (subName: string): boolean => {
               const nameLower = subName.toLowerCase();
               return (
-                nameLower.includes('resultado') ||
-                nameLower.includes('ponto') ||
                 nameLower.includes('classifica') ||
                 nameLower.includes('geral') ||
-                nameLower.includes('final') ||
                 nameLower.includes('overall') ||
                 nameLower.includes('standing')
               );
             };
 
-            const grupoSubs = group.subCategories.filter(sub => !isGeneralResultSub(sub.subName));
-            const generalSubs = group.subCategories.filter(sub => isGeneralResultSub(sub.subName));
+            const hasDetailedPhases = group.subCategories.some(sub => sub.fullName !== group.baseName);
+
+            const grupoSubs = group.subCategories.filter(sub => {
+              if (hasDetailedPhases && sub.fullName === group.baseName) {
+                return false;
+              }
+              return !isGeneralResultSub(sub.subName);
+            });
+
+            const generalSubs = group.subCategories.filter(sub => {
+              if (hasDetailedPhases && sub.fullName === group.baseName) {
+                return true;
+              }
+              return isGeneralResultSub(sub.subName);
+            });
 
             // Filter subcategories based on selection
             const subsToRender = activeSub === 'ALL'

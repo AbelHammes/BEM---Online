@@ -48,6 +48,88 @@ function getDefaultRaceState() {
   };
 }
 
+// Propagates and syncs athlete details (such as draws, points, places, times) across different subcategories/phases of the same base category
+function propagateAthleteData(currentState: any) {
+  if (!currentState || !currentState.event || !currentState.event.categories) {
+    return currentState;
+  }
+
+  const categories = currentState.event.categories;
+  
+  // 1. Group categories by baseCategoryName
+  const baseGroups: { [baseName: string]: any[] } = {};
+  for (const cat of categories) {
+    const baseName = cat.categoryName.split(" - ")[0].trim().toLowerCase();
+    if (!baseGroups[baseName]) {
+      baseGroups[baseName] = [];
+    }
+    baseGroups[baseName].push(cat);
+  }
+
+  // 2. For each base category group, accumulate all athlete properties by plate
+  for (const baseName of Object.keys(baseGroups)) {
+    const catsInGroup = baseGroups[baseName];
+    const athleteMaster: { [plate: string]: any } = {};
+
+    // Collect all properties
+    for (const cat of catsInGroup) {
+      if (!cat.athletes) continue;
+      for (const ath of cat.athletes) {
+        if (!ath.plate) continue;
+        const plate = ath.plate.toString().trim();
+        if (!athleteMaster[plate]) {
+          athleteMaster[plate] = {};
+        }
+
+        const master = athleteMaster[plate];
+        
+        // We sync draws, places, times, reaction, points, transfer, etc.
+        const keysToSync = [
+          "m1Draw", "m2Draw", "m3Draw",
+          "m1Place", "m2Place", "m3Place",
+          "m1Time", "m2Time", "m3Time",
+          "m1Reaction", "m2Reaction", "m3Reaction",
+          "place", "points", "transfer", "group"
+        ];
+
+        for (const key of keysToSync) {
+          if (ath[key] !== undefined && ath[key] !== null && ath[key] !== "") {
+            master[key] = ath[key];
+          }
+        }
+      }
+    }
+
+    // 3. Propagate master properties back to all athlete records in this base category
+    for (const cat of catsInGroup) {
+      if (!cat.athletes) continue;
+      cat.athletes = cat.athletes.map((ath: any) => {
+        if (!ath.plate) return ath;
+        const plate = ath.plate.toString().trim();
+        const master = athleteMaster[plate];
+        if (!master) return ath;
+
+        const updated = { ...ath };
+        for (const [key, val] of Object.entries(master)) {
+          if (val !== undefined && val !== null && val !== "") {
+            if (key.startsWith("m1") || key.startsWith("m2") || key.startsWith("m3")) {
+              updated[key] = val;
+            } else {
+              // For general fields like 'place', 'points', 'transfer', 'group', only fill in if they are currently empty
+              if (updated[key] === undefined || updated[key] === null || updated[key] === "") {
+                updated[key] = val;
+              }
+            }
+          }
+        }
+        return updated;
+      });
+    }
+  }
+
+  return currentState;
+}
+
 // Read database or initialize with fast in-memory caching
 function readDB() {
   if (dbCache) {
@@ -56,8 +138,9 @@ function readDB() {
   try {
     if (fs.existsSync(DB_FILE)) {
       const data = fs.readFileSync(DB_FILE, "utf-8");
-      dbCache = JSON.parse(data);
-      serializedDbCache = data;
+      const parsed = JSON.parse(data);
+      dbCache = propagateAthleteData(parsed);
+      serializedDbCache = JSON.stringify(dbCache, null, 2);
       return dbCache;
     }
   } catch (err) {
@@ -70,10 +153,11 @@ function readDB() {
 }
 
 function writeDB(data: any) {
-  dbCache = data;
+  const propagated = propagateAthleteData(data);
+  dbCache = propagated;
   dbLastModified = Date.now();
   try {
-    const serialized = JSON.stringify(data, null, 2);
+    const serialized = JSON.stringify(propagated, null, 2);
     serializedDbCache = serialized;
     fs.writeFileSync(DB_FILE, serialized, "utf-8");
   } catch (err) {
