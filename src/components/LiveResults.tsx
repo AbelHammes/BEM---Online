@@ -71,6 +71,46 @@ const friendlyTransferText = (code?: string) => {
   return `Avança de Fase (${upper})`;
 };
 
+// Helper to determine if a subcategory represents the final/overall results of the race
+const isFinalResultsSub = (subName: string): boolean => {
+  const nameLower = subName.toLowerCase();
+  
+  if (
+    nameLower.includes('geral') ||
+    nameLower.includes('classifica') ||
+    nameLower.includes('overall') ||
+    nameLower.includes('standing')
+  ) {
+    return true;
+  }
+  
+  if (nameLower.includes('final') || nameLower.includes('finais')) {
+    const isQualifying = 
+      nameLower.includes('transfer') ||
+      nameLower.includes('transf') ||
+      nameLower.includes('sem resultados') ||
+      nameLower.includes('para final') ||
+      nameLower.includes('fase') ||
+      nameLower.includes('bateria') ||
+      nameLower.includes('moto') ||
+      nameLower.includes('grupo') ||
+      nameLower.includes('sorteio');
+      
+    return !isQualifying;
+  }
+  
+  return false;
+};
+
+// Helper to serialize subcategory athletes to check for duplicate content
+const getSubFingerprint = (sub: any): string => {
+  const athletes = sub.data?.athletes || [];
+  const fingerprintParts = athletes.map((ath: any) => {
+    return `${ath.plate}:${ath.place || ''}:${ath.points || ''}:${ath.m1Place || ''}:${ath.m2Place || ''}:${ath.m3Place || ''}:${ath.m1Time || ''}:${ath.m2Time || ''}:${ath.m3Time || ''}`;
+  });
+  return fingerprintParts.sort().join('|');
+};
+
 export default function LiveResults({ event, isDashboard = false }: LiveResultsProps) {
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [resultsMode, setResultsMode] = useState<'overall' | 'motos' | 'draws' | 'entries'>('overall');
@@ -608,12 +648,43 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
             const hasDetailedPhases = group.subCategories.some(sub => sub.fullName !== group.baseName);
 
-            const grupoSubs = group.subCategories.filter(sub => {
+            const rawGrupoSubs = group.subCategories.filter(sub => {
               if (hasDetailedPhases && sub.fullName === group.baseName) {
                 return false;
               }
               return !isGeneralResultSub(sub.subName);
             });
+
+            // Deduplicate rawGrupoSubs to avoid identical phases (e.g. "Resultados em pontos" and "Sem resultados Finais" displaying the same info)
+            const deduplicatedGrupoSubs: typeof rawGrupoSubs = [];
+            if (rawGrupoSubs.length > 0) {
+              const fingerprintMap = new Map<string, typeof rawGrupoSubs>();
+              for (const sub of rawGrupoSubs) {
+                const fp = getSubFingerprint(sub);
+                if (!fingerprintMap.has(fp)) {
+                  fingerprintMap.set(fp, []);
+                }
+                fingerprintMap.get(fp)!.push(sub);
+              }
+
+              const bestSubs = new Set<typeof rawGrupoSubs[0]>();
+              for (const [fp, duplicates] of fingerprintMap.entries()) {
+                let best = duplicates.find(d => !d.subName.toLowerCase().includes('sem resultados'));
+                if (!best) {
+                  best = duplicates[0];
+                }
+                bestSubs.add(best);
+              }
+
+              // Maintain original relative order
+              rawGrupoSubs.forEach(sub => {
+                if (bestSubs.has(sub)) {
+                  deduplicatedGrupoSubs.push(sub);
+                }
+              });
+            }
+
+            const grupoSubs = deduplicatedGrupoSubs;
 
             const generalSubs = group.subCategories.filter(sub => {
               if (hasDetailedPhases && sub.fullName === group.baseName) {
@@ -905,7 +976,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         // We only show placements and rankings if there actually are numeric results published for this group
                                         const rankInt = numPlace;
 
-                                        const showTrophies = resultsMode === 'overall' && hasAnyNumericPlace;
+                                        const showTrophies = resultsMode === 'overall' && hasAnyNumericPlace && isFinalResultsSub(sub.subName);
                                         const isFirst = showTrophies && rankInt === 1;
                                         const isSecond = showTrophies && rankInt === 2;
                                         const isThird = showTrophies && rankInt === 3;
@@ -1195,7 +1266,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     const numPlace = getNumericPlace(ath.place);
                                     const rankInt = numPlace;
 
-                                    const showTrophies = resultsMode === 'overall' && hasAnyNumericPlace;
+                                    const showTrophies = resultsMode === 'overall' && hasAnyNumericPlace && isFinalResultsSub(sub.subName);
                                     const isFirst = showTrophies && rankInt === 1;
                                     const isSecond = showTrophies && rankInt === 2;
                                     const isThird = showTrophies && rankInt === 3;
