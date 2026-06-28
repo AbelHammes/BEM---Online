@@ -206,10 +206,25 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
       };
 
       // Add Draws & Results
-      if (reportType.includes("MOTO DRAWS") || reportType.includes("SORTEIOS")) {
-        athlete.m1Draw = m1Raw;
-        athlete.m2Draw = m2Raw;
-        athlete.m3Draw = m3Raw;
+      const reportTypeUpper = reportType.toUpperCase();
+      const isDrawReport = reportTypeUpper.includes("MOTO DRAWS") || 
+                           reportTypeUpper.includes("SORTEIOS") || 
+                           reportTypeUpper.includes("SORTEIO") || 
+                           reportTypeUpper.includes("GATE") || 
+                           reportTypeUpper.includes("GATES") || 
+                           reportTypeUpper.includes("RAIA") || 
+                           reportTypeUpper.includes("RAIAS") || 
+                           reportTypeUpper.includes("LARGADA") || 
+                           reportTypeUpper.includes("ORDEM");
+
+      if (isDrawReport) {
+        const cleanDrawValue = (val: string): string => {
+          if (!val) return "";
+          return val.replace(/^(bateria|raia|heat|lane|b\.|r\.|b:|r:)\s*/i, "").trim();
+        };
+        athlete.m1Draw = cleanDrawValue(m1Raw);
+        athlete.m2Draw = cleanDrawValue(m2Raw);
+        athlete.m3Draw = cleanDrawValue(m3Raw);
       } else {
         // Results
         athlete.m1Place = m1Raw || athlete.place;
@@ -542,19 +557,53 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
       const isDraw = htmlUpper.includes("BATERIA) SORTEIOS") || 
                      htmlUpper.includes("SORTEIO") || 
                      htmlUpper.includes("DRAWS") || 
-                     htmlUpper.includes("SORTEIOS");
+                     htmlUpper.includes("SORTEIOS") ||
+                     htmlUpper.includes("GATE") ||
+                     htmlUpper.includes("GATES") ||
+                     htmlUpper.includes("RAIA") ||
+                     htmlUpper.includes("RAIAS") ||
+                     htmlUpper.includes("MOTO DRAW") ||
+                     htmlUpper.includes("MOTO DRAWS") ||
+                     htmlUpper.includes("LARGADA") ||
+                     htmlUpper.includes("ORDEM DE LARGADA");
       if (isDraw) {
+        const cleanDrawValue = (val: string): string => {
+          if (!val) return "";
+          return val.replace(/^(bateria|raia|heat|lane|b\.|r\.|b:|r:)\s*/i, "").trim();
+        };
+
         if (m1Idx !== -1) {
           const rawCell = r[m1Idx] || "";
-          athlete.m1Draw = /<br/i.test(rawCell) ? parseMotoCellHtml(rawCell).place : stripHtmlTags(rawCell);
+          if (/<br/i.test(rawCell)) {
+            const parsed = parseMotoCellHtml(rawCell);
+            const heat = cleanDrawValue(parsed.place);
+            const lane = cleanDrawValue(parsed.time);
+            athlete.m1Draw = lane ? `${heat} : ${lane}` : heat;
+          } else {
+            athlete.m1Draw = cleanDrawValue(stripHtmlTags(rawCell));
+          }
         }
         if (m2Idx !== -1) {
           const rawCell = r[m2Idx] || "";
-          athlete.m2Draw = /<br/i.test(rawCell) ? parseMotoCellHtml(rawCell).place : stripHtmlTags(rawCell);
+          if (/<br/i.test(rawCell)) {
+            const parsed = parseMotoCellHtml(rawCell);
+            const heat = cleanDrawValue(parsed.place);
+            const lane = cleanDrawValue(parsed.time);
+            athlete.m2Draw = lane ? `${heat} : ${lane}` : heat;
+          } else {
+            athlete.m2Draw = cleanDrawValue(stripHtmlTags(rawCell));
+          }
         }
         if (m3Idx !== -1) {
           const rawCell = r[m3Idx] || "";
-          athlete.m3Draw = /<br/i.test(rawCell) ? parseMotoCellHtml(rawCell).place : stripHtmlTags(rawCell);
+          if (/<br/i.test(rawCell)) {
+            const parsed = parseMotoCellHtml(rawCell);
+            const heat = cleanDrawValue(parsed.place);
+            const lane = cleanDrawValue(parsed.time);
+            athlete.m3Draw = lane ? `${heat} : ${lane}` : heat;
+          } else {
+            athlete.m3Draw = cleanDrawValue(stripHtmlTags(rawCell));
+          }
         }
       } else {
         // Moto 1

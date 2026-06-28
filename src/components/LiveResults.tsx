@@ -45,7 +45,7 @@ const isValidTime = (t?: string) => {
 // Helper to parse lane draws (e.g., "172: 4" -> Bateria 172, Raia 4)
 const parseDrawText = (draw?: string) => {
   if (!draw) return null;
-  const parts = draw.trim().split(/\s*[:/]\s*/);
+  const parts = draw.trim().split(/\s*[:/\-]\s*/);
   if (parts.length === 2) {
     return {
       heat: parts[0].trim(),
