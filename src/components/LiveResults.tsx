@@ -365,23 +365,51 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
   // Overall Event Statistics
   const eventStats = useMemo(() => {
-    let categoriesCount = 0;
+    const categoriesCount = groupedCategories.length;
     let athletesCount = 0;
     const clubs = new Set<string>();
     const states = new Set<string>();
 
-    if (event && event.categories) {
-      categoriesCount = event.categories.length;
-      event.categories.forEach(cat => {
-        if (cat.athletes) {
-          athletesCount += cat.athletes.length;
-          cat.athletes.forEach(ath => {
-            if (ath.club) clubs.add(ath.club);
-            if (ath.state) states.add(ath.state);
-          });
-        }
+    groupedCategories.forEach(g => {
+      // Find a subcategory that is a Class Entries report
+      const entriesSub = g.subCategories.find(sub => {
+        const lowerName = sub.fullName.toLowerCase();
+        const lowerSub = sub.subName.toLowerCase();
+        return (
+          lowerName.includes("entry") ||
+          lowerName.includes("entries") ||
+          lowerName.includes("inscrito") ||
+          lowerName.includes("piloto") ||
+          lowerSub.includes("entry") ||
+          lowerSub.includes("entries") ||
+          lowerSub.includes("inscrito") ||
+          lowerSub.includes("piloto")
+        );
       });
-    }
+
+      if (entriesSub && entriesSub.data && entriesSub.data.athletes) {
+        athletesCount += entriesSub.data.athletes.length;
+        entriesSub.data.athletes.forEach(ath => {
+          if (ath.club) clubs.add(ath.club);
+          if (ath.state) states.add(ath.state);
+        });
+      } else {
+        // Fallback: collect unique athletes by plate across all subcategories of this group
+        const uniquePlatesInGroup = new Set<string>();
+        g.subCategories.forEach(sub => {
+          if (sub.data && sub.data.athletes) {
+            sub.data.athletes.forEach(ath => {
+              if (ath.plate) {
+                uniquePlatesInGroup.add(ath.plate);
+                if (ath.club) clubs.add(ath.club);
+                if (ath.state) states.add(ath.state);
+              }
+            });
+          }
+        });
+        athletesCount += uniquePlatesInGroup.size;
+      }
+    });
 
     return {
       categoriesCount,
@@ -389,7 +417,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
       clubsCount: clubs.size,
       statesCount: states.size
     };
-  }, [event]);
+  }, [groupedCategories, event]);
 
   // Trigger print view
   const handlePrint = () => {
@@ -589,12 +617,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
           </div>
 
           {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t border-white/10 text-white/95">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-white/10 text-white/95">
             <div className="bg-white/5 backdrop-blur-xs p-2 rounded-lg border border-white/5">
               <div className="text-[10px] text-yellow-300 font-extrabold uppercase tracking-wider">Categorias</div>
               <div className="text-lg font-black font-mono mt-0.5 flex items-baseline gap-1">
                 {eventStats.categoriesCount}
-                <span className="text-xxs font-normal text-emerald-200">fases</span>
+                <span className="text-xxs font-normal text-emerald-200">categorias</span>
               </div>
             </div>
             <div className="bg-white/5 backdrop-blur-xs p-2 rounded-lg border border-white/5">
@@ -609,13 +637,6 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
               <div className="text-lg font-black font-mono mt-0.5 flex items-baseline gap-1">
                 {eventStats.statesCount}
                 <span className="text-xxs font-normal text-emerald-200">regiões</span>
-              </div>
-            </div>
-            <div className="bg-white/5 backdrop-blur-xs p-2 rounded-lg border border-white/5">
-              <div className="text-[10px] text-yellow-300 font-extrabold uppercase tracking-wider">Clubes Sincronizados</div>
-              <div className="text-lg font-black font-mono mt-0.5 flex items-baseline gap-1">
-                {eventStats.clubsCount}
-                <span className="text-xxs font-normal text-emerald-200">equipes</span>
               </div>
             </div>
           </div>
