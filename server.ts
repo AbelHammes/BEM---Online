@@ -994,43 +994,112 @@ app.post("/api/upload-bem", (req, res) => {
         }
       }
 
-      // Add custom notification for this sync in real-time
-      const newNotif = {
-        id: Math.random().toString(),
-        timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-        title: `Sincronização Realizada`,
-        message: `Relatório de tipo [${reportParsedType}] (${fileLabel}) recebido e integrado instantaneamente para todas as categorias.`,
-        severity: "info" as const
-      };
+      // Generate notifications only for specific event reports as requested
+      let generatedNotifications: any[] = [];
+
+      const fnLower = fileLabel.toLowerCase();
+      const rtLower = reportParsedType.toLowerCase();
+
+      const isEntries = fnLower.includes("inscrito") || fnLower.includes("entry") || fnLower.includes("entries") || fnLower.includes("piloto") || rtLower.includes("entry") || rtLower.includes("entries") || rtLower.includes("inscrito");
+      const isDraws = fnLower.includes("sorteio") || fnLower.includes("draw") || fnLower.includes("gate") || fnLower.includes("raia") || fnLower.includes("largada") || rtLower.includes("draw") || rtLower.includes("gate") || rtLower.includes("raia");
       
-      let generatedNotifications = [newNotif];
+      const isMoto1 = fnLower.includes("moto1") || fnLower.includes("moto 1") || fnLower.includes("m1") || rtLower.includes("moto1") || rtLower.includes("moto 1") || rtLower.includes("m1");
+      const isMoto2 = fnLower.includes("moto2") || fnLower.includes("moto 2") || fnLower.includes("m2") || rtLower.includes("moto2") || rtLower.includes("moto 2") || rtLower.includes("m2");
+      const isMoto3 = fnLower.includes("moto3") || fnLower.includes("moto 3") || fnLower.includes("m3") || rtLower.includes("moto3") || rtLower.includes("moto 3") || rtLower.includes("m3");
+      
+      const isFinals = fnLower.includes("final") || fnLower.includes("geral") || fnLower.includes("overall") || fnLower.includes("classifica") || rtLower.includes("final") || rtLower.includes("geral") || rtLower.includes("overall") || rtLower.includes("classifica");
 
-      // 3. Create elegant notifications for newly advanced pilots
-      for (const [catName, pilots] of Object.entries(newTransfersByCategory)) {
-        const pilotLines = pilots.map(p => `• Placa #${p.plate} - ${p.fullName} (${p.state}) -> ${getFriendlyTransferText(p.transfer)}`).join("\n");
-        
-        const firstTransfer = pilots[0].transfer.toUpperCase();
-        let phaseTitle = "Classificados para Nova Fase";
-        if (firstTransfer.startsWith('F')) {
-          phaseTitle = "Finalistas Confirmados 🏆";
-        } else if (firstTransfer.startsWith('S')) {
-          phaseTitle = "Semifinalistas Confirmados";
-        } else if (firstTransfer.startsWith('Q')) {
-          phaseTitle = "Quarterfinalistas Confirmados";
-        }
-
-        const transferNotif = {
+      // 1. Relatório de Inscritos
+      if (isEntries) {
+        generatedNotifications.push({
           id: Math.random().toString(),
           timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
-          title: `${phaseTitle} - ${catName}`,
-          message: `Os seguintes pilotos avançaram de fase nesta sincronização:\n${pilotLines}`,
+          title: `📝 Lista de Inscritos Confirmada`,
+          message: `A lista oficial de inscritos (relatório de pilotos) foi importada e atualizada para todas as categorias no sistema.`,
           severity: "info" as const
-        };
-        generatedNotifications.push(transferNotif);
+        });
       }
 
-      currentState.notifications = [...generatedNotifications, ...currentState.notifications].slice(0, 50);
-      writeDB(currentState);
+      // 2. Sorteio de Raias
+      if (isDraws) {
+        generatedNotifications.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+          title: `🚪 Sorteio de Raias (Gate) Disponível`,
+          message: `O sorteio oficial de raias (posições de largada) para as baterias de todas as categorias já está disponível para consulta.`,
+          severity: "info" as const
+        });
+      }
+
+      // 3. Resultados Moto 1, Moto 2, Moto 3
+      if (isMoto1) {
+        generatedNotifications.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+          title: `🏁 Resultados da Moto 1 Publicados`,
+          message: `Os resultados oficiais da Moto 1 das baterias foram processados e atualizados em tempo real.`,
+          severity: "info" as const
+        });
+      }
+      if (isMoto2) {
+        generatedNotifications.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+          title: `🏁 Resultados da Moto 2 Publicados`,
+          message: `Os resultados oficiais da Moto 2 das baterias foram processados e atualizados em tempo real.`,
+          severity: "info" as const
+        });
+      }
+      if (isMoto3) {
+        generatedNotifications.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+          title: `🏁 Resultados da Moto 3 Publicados`,
+          message: `Os resultados oficiais da Moto 3 das baterias foram processados e atualizados em tempo real.`,
+          severity: "info" as const
+        });
+      }
+
+      // 4. Atletas que avançam de fase
+      if (Object.keys(newTransfersByCategory).length > 0) {
+        for (const [catName, pilots] of Object.entries(newTransfersByCategory)) {
+          const pilotLines = pilots.map(p => `• Placa #${p.plate} - ${p.fullName} (${p.state}) -> ${getFriendlyTransferText(p.transfer)}`).join("\n");
+          const firstTransfer = pilots[0].transfer.toUpperCase();
+          let phaseTitle = "Classificados para Nova Fase";
+          if (firstTransfer.startsWith('F')) {
+            phaseTitle = "Finalistas Confirmados 🏆";
+          } else if (firstTransfer.startsWith('S')) {
+            phaseTitle = "Semifinalistas Confirmados";
+          } else if (firstTransfer.startsWith('Q')) {
+            phaseTitle = "Quarterfinalistas Confirmados";
+          }
+
+          generatedNotifications.push({
+            id: Math.random().toString(),
+            timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+            title: `${phaseTitle} - ${catName}`,
+            message: `Os seguintes pilotos avançaram de fase nesta sincronização:\n${pilotLines}`,
+            severity: "info" as const
+          });
+        }
+      }
+
+      // 5. Resultados Finais / Classificação Geral
+      if (isFinals) {
+        generatedNotifications.push({
+          id: Math.random().toString(),
+          timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
+          title: `🏆 Resultados Finais Consolidados`,
+          message: `A classificação geral definitiva e posições finais da fase final foram calculadas e publicadas.`,
+          severity: "info" as const
+        });
+      }
+
+      // Only write to state and DB if we actually generated some notifications
+      if (generatedNotifications.length > 0) {
+        currentState.notifications = [...generatedNotifications, ...currentState.notifications].slice(0, 50);
+        writeDB(currentState);
+      }
 
       return res.json({
         success: true,

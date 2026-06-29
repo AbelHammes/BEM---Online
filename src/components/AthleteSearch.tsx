@@ -218,7 +218,7 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
               <div className="space-y-1 mt-3 border-t border-gray-100 pt-2 text-xxs text-gray-600">
                 <div className="flex items-center gap-2">
                   <MapPin size={12} className="text-gray-400 shrink-0" />
-                  <span className="truncate"><strong>Clube:</strong> {athlete.club || 'Independente'}</span>
+                  <span className="truncate"><strong>Clube:</strong> {athlete.club || 'Avulso'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2">

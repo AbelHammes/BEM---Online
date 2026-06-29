@@ -498,7 +498,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   <td><span class="place-badge">${ath.place || '-'}</span></td>
                   <td><strong>#${ath.plate}</strong></td>
                   <td class="text-left" style="font-weight: 600;">${ath.firstName} ${ath.lastName}</td>
-                  <td class="text-left">${ath.club || 'Independente'} (${ath.state || 'BRA'})</td>
+                  <td class="text-left">${ath.club || 'Avulso'} (${ath.state || 'BRA'})</td>
                   ${resultsMode === 'overall' ? `<td class="points-cell">${ath.points ?? '-'}</td>` : ''}
                   <td>${m1Str}</td>
                   <td>${m2Str}</td>
@@ -770,12 +770,16 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
             const hasSemi = !!semiSub;
             const hasFinal = !!finalSub;
 
-            const isAllMode = activeSub === 'TODAS' || activeSub === 'ALL';
+            const isAllMode = activeSub === 'TODAS' || activeSub === 'ALL' || resultsMode === 'overall';
 
             // Filter subcategories based on selection
             let subsToRender: typeof group.subCategories = [];
             if (resultsMode === 'draws' && isAllMode) {
-              subsToRender = group.subCategories;
+              if (!hasQuartas && !hasSemi && !hasFinal) {
+                subsToRender = motosSub ? [motosSub] : [];
+              } else {
+                subsToRender = group.subCategories.filter(sub => !isFinalResultsSub(sub.subName));
+              }
             } else if (!isAllMode) {
               if (activeSub === 'MOTOS' && motosSub) {
                 subsToRender = [motosSub];
@@ -836,6 +840,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   }
                   athletesMap[plate].quartasPlace = ath.place;
                   athletesMap[plate].quartasGroup = ath.group;
+                  athletesMap[plate].quartasPoints = ath.points;
                 });
               }
 
@@ -857,6 +862,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   }
                   athletesMap[plate].semiPlace = ath.place;
                   athletesMap[plate].semiGroup = ath.group;
+                  athletesMap[plate].semiPoints = ath.points;
                 });
               }
 
@@ -878,6 +884,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   }
                   athletesMap[plate].finalPlace = ath.place;
                   athletesMap[plate].finalGroup = ath.group;
+                  athletesMap[plate].finalPoints = ath.points;
                 });
               }
 
@@ -925,6 +932,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   score = 100 + mptsVal;
                 }
                 ath.overallRankScore = score;
+
+                // Sum points of all phases for total classification points
+                const qPts = ath.quartasPoints !== undefined && ath.quartasPoints !== null ? Number(ath.quartasPoints) : 0;
+                const sPts = ath.semiPoints !== undefined && ath.semiPoints !== null ? Number(ath.semiPoints) : 0;
+                const fPts = ath.finalPoints !== undefined && ath.finalPoints !== null ? Number(ath.finalPoints) : 0;
+                const mPts = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 0;
+                ath.totalPoints = mPts + qPts + sPts + fPts;
               });
 
               list.sort((a: any, b: any) => {
@@ -973,7 +987,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                 </div>
 
                 {/* Subcategory Tab Selector */}
-                {resultsMode !== 'entries' && group.subCategories.length > 1 && (
+                {resultsMode !== 'entries' && resultsMode !== 'overall' && group.subCategories.length > 1 && (
                   <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 bg-slate-50/30 border-b border-slate-100">
                     <button
                       onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'TODAS' }))}
@@ -1114,7 +1128,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         )}
                                       </div>
                                       <div className="text-[10px] text-slate-400 font-mono mt-0.5 md:hidden flex flex-wrap items-center gap-1 leading-tight">
-                                        <span>{ath.club || 'Independente'}</span>
+                                        <span>{ath.club || 'Avulso'}</span>
                                         <span className="text-slate-300">•</span>
                                         <span className="font-bold text-slate-600">UF: {ath.state || 'BRA'}</span>
                                       </div>
@@ -1122,7 +1136,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                                     {/* Club / Association */}
                                     <td className="p-2 sm:p-3 text-slate-600 hidden md:table-cell">
-                                      <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Independente'}</div>
+                                      <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Avulso'}</div>
                                       <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                                         <MapPin size={10} className="text-slate-400 shrink-0" />
                                         <span>UF: {ath.state || 'BRA'}</span>
@@ -1172,7 +1186,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                       {ath.firstName} {ath.lastName}
                                     </h4>
                                     <div className="flex flex-col text-[10px] text-slate-500 font-semibold mt-1">
-                                      <span className="truncate">{ath.club || 'Independente'}</span>
+                                      <span className="truncate">{ath.club || 'Avulso'}</span>
                                       <span className="font-mono text-slate-400 font-normal mt-0.5">UF: {ath.state || 'BRA'} | UCI: {ath.uciId || 'N/A'}</span>
                                     </div>
                                   </div>
@@ -1215,7 +1229,9 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                 <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs">Piloto</th>
                                 <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs hidden md:table-cell">Clube / Associação</th>
                                 {resultsMode !== 'overall' && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Motos (M1/M2/M3)</th>}
-                                <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800 font-black bg-emerald-50/10">M-PTS</th>
+                                <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800 font-black bg-emerald-50/10">
+                                  {resultsMode === 'overall' ? 'Pontos Total' : 'M-PTS'}
+                                </th>
                                 {resultsMode !== 'overall' && hasQuartas && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Quartas</th>}
                                 {resultsMode !== 'overall' && hasSemi && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Semi</th>}
                                 {resultsMode !== 'overall' && hasFinal && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-amber-700 font-black">Final</th>}
@@ -1270,7 +1286,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         )}
                                       </div>
                                       <div className="text-[10px] text-slate-400 font-mono mt-0.5 md:hidden flex flex-wrap items-center gap-1 leading-tight">
-                                        <span>{ath.club || 'Independente'}</span>
+                                        <span>{ath.club || 'Avulso'}</span>
                                         <span className="text-slate-300">•</span>
                                         <span className="font-bold text-slate-600">UF: {ath.state || 'BRA'}</span>
                                       </div>
@@ -1278,7 +1294,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                                     {/* Club / Association */}
                                     <td className="p-2 sm:p-3 text-slate-600 hidden md:table-cell">
-                                      <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Independente'}</div>
+                                      <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Avulso'}</div>
                                       <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                                         <MapPin size={10} className="text-slate-400 shrink-0" />
                                         <span>UF: {ath.state || 'BRA'}</span>
@@ -1298,7 +1314,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                                     {/* M-PTS */}
                                     <td className="p-2 sm:p-3 text-center font-black text-emerald-700 bg-emerald-50/20 text-xs">
-                                      {ath.mpts !== undefined && ath.mpts !== null ? ath.mpts : '-'}
+                                      {resultsMode === 'overall' ? (ath.totalPoints ?? '-') : (ath.mpts !== undefined && ath.mpts !== null ? ath.mpts : '-')}
                                     </td>
 
                                     {/* Quartas */}
@@ -1399,7 +1415,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                       {ath.firstName} {ath.lastName}
                                     </h4>
                                     <div className="flex flex-col text-[10px] text-slate-500 font-semibold mt-1">
-                                      <span className="truncate">{ath.club || 'Independente'}</span>
+                                      <span className="truncate">{ath.club || 'Avulso'}</span>
                                       <span className="font-mono text-slate-400 font-normal mt-0.5">UF: {ath.state || 'BRA'} | {ath.country || 'BRA'}</span>
                                     </div>
                                   </div>
@@ -1451,8 +1467,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                 </div>
                                 ) : (
                                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between pl-1.5 bg-emerald-50/20 p-2 rounded-xl text-[10px]">
-                                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[8px]">Pontos Geral</span>
-                                    <span className="font-mono font-black text-xs text-emerald-700">{ath.mpts !== undefined && ath.mpts !== null ? `${ath.mpts} PTS` : '-'}</span>
+                                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[8px]">{resultsMode === 'overall' ? 'Pontos Totais' : 'Pontos Geral'}</span>
+                                    <span className="font-mono font-black text-xs text-emerald-700">{resultsMode === 'overall' ? `${ath.totalPoints ?? '-'} PTS` : (ath.mpts !== undefined && ath.mpts !== null ? `${ath.mpts} PTS` : '-')}</span>
                                   </div>
                                 )}
                               </div>
@@ -1639,7 +1655,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
  
                                         {/* Transfer Header */}
                                         {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && (
-                                          <th className="p-1.5 sm:p-3 w-24 text-center text-emerald-800 text-[10px] sm:text-xs hidden md:table-cell">Classificação</th>
+                                          <th className="p-1.5 sm:p-3 w-24 text-center text-emerald-800 text-[10px] sm:text-xs ">Classif.</th>
                                         )}
                                       </tr>
                                     </thead>
@@ -1648,8 +1664,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         const numPlace = getNumericPlace(ath.place);
                                         // We only show placements and rankings if there actually are numeric results published for this group
                                         const rankInt = numPlace;
-
-                                        const showTrophies = resultsMode === 'overall' && hasAnyNumericPlace && isFinalResultsSub(sub.subName);
+                                        const isFinal = isFinalResultsSub(sub.subName);
+                                        const showTrophies = (resultsMode === 'overall' || (resultsMode === 'motos' && isFinal)) && hasAnyNumericPlace;
                                         const isFirst = showTrophies && rankInt === 1;
                                         const isSecond = showTrophies && rankInt === 2;
                                         const isThird = showTrophies && rankInt === 3;
@@ -1691,7 +1707,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                   <span className="text-slate-400 font-mono font-bold">{rankInt}º</span>
                                                 ) : (
                                                   <span className="text-slate-400 font-mono font-bold">
-                                                    {(resultsMode === 'overall' || resultsMode === 'motos') ? `${idx + 1}º` : (ath.place || '-')}
+                                                    {(resultsMode === 'overall' || (resultsMode === 'motos' && !isFinal)) ? `${idx + 1}º` : (ath.place || '-')}
                                                   </span>
                                                 )}
                                               </td>
@@ -1716,7 +1732,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                 )}
                                               </div>
                                               <div className="text-[10px] text-slate-400 font-mono mt-0.5 md:hidden flex flex-wrap items-center gap-1 leading-tight">
-                                                <span>{ath.club || 'Independente'}</span>
+                                                <span>{ath.club || 'Avulso'}</span>
                                                 <span className="text-slate-300">•</span>
                                                 <span className="font-bold text-slate-600">UF: {ath.state || 'BRA'}</span>
                                               </div>
@@ -1736,7 +1752,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
  
                                             {/* Club/UF Cell */}
                                             <td className="p-1.5 sm:p-3 text-slate-600 hidden md:table-cell">
-                                              <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Independente'}</div>
+                                              <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Avulso'}</div>
                                               <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
                                                 <MapPin size={10} className="text-slate-400 shrink-0" />
                                                 <span>UF: {ath.state || 'BRA'}</span>
@@ -1916,13 +1932,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
  
                                             {/* Transfer Badge Cell */}
                                             {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && (
-                                              <td className="p-1.5 sm:p-3 text-center hidden md:table-cell">
+                                              <td className="p-1.5 sm:p-3 text-center">
                                                 {ath.transfer ? (
                                                   <span 
-                                                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg font-bold font-mono text-[10px] shadow-xxs"
+                                                    className="inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md font-bold font-mono text-[9px] sm:text-[10px] shadow-xxs"
                                                     title={friendlyTransferText(ath.transfer)}
                                                   >
-                                                    <ShieldCheck size={11} className="text-emerald-600 shrink-0" />
+                                                    <ShieldCheck size={9} className="text-emerald-600 shrink-0 hidden sm:inline" />
                                                     {ath.transfer}
                                                   </span>
                                                 ) : (
@@ -1944,8 +1960,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                   {sortedAthletes.map((ath, idx) => {
                                     const numPlace = getNumericPlace(ath.place);
                                     const rankInt = numPlace;
-
-                                    const showTrophies = resultsMode === 'overall' && hasAnyNumericPlace && isFinalResultsSub(sub.subName);
+                                    const isFinal = isFinalResultsSub(sub.subName);
+                                    const showTrophies = (resultsMode === 'overall' || (resultsMode === 'motos' && isFinal)) && hasAnyNumericPlace;
                                     const showSpecialHighlights = resultsMode !== 'draws';
                                     const isFirst = showSpecialHighlights && showTrophies && rankInt === 1;
                                     const isSecond = showSpecialHighlights && showTrophies && rankInt === 2;
@@ -1991,7 +2007,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                   isThird ? 'bg-amber-100 text-amber-800' :
                                                   'bg-slate-100 text-slate-600'
                                                 }`}>
-                                                  {rankInt !== null ? `${rankInt}º` : ((resultsMode === 'overall' || resultsMode === 'motos') ? `${idx + 1}º` : (ath.place || '-'))}
+                                                  {rankInt !== null ? `${rankInt}º` : ((resultsMode === 'overall' || (resultsMode === 'motos' && !isFinal)) ? `${idx + 1}º` : (ath.place || '-'))}
                                                 </div>
                                               ) : null}
 
@@ -2016,7 +2032,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                               {ath.firstName} {ath.lastName}
                                             </h4>
                                             <div className="flex flex-col text-[10px] text-slate-500 font-semibold mt-1">
-                                              <span className="truncate">{ath.club || 'Independente'}</span>
+                                              <span className="truncate">{ath.club || 'Avulso'}</span>
                                               <span className="font-mono text-slate-400 font-normal mt-0.5">UF: {ath.state || 'BRA'} | {ath.country || 'BRA'}</span>
                                             </div>
                                           </div>
