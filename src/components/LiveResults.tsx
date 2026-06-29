@@ -1626,19 +1626,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                             if (resultsMode === 'draws' && isSingleRunPhase(sub.subName)) {
                               const subLower = sub.subName.toLowerCase();
-                              if (subLower.includes('final') && !subLower.includes('semi') && !subLower.includes('quarta')) {
-                                // Final: sort by semiPlace, then quartasPlace, then mpts
-                                const sA = getNumericPlace(fullA.semiPlace) ?? 9999;
-                                const sB = getNumericPlace(fullB.semiPlace) ?? 9999;
-                                if (sA !== sB) return sA - sB;
-                                
-                                const qA = getNumericPlace(fullA.quartasPlace) ?? 9999;
-                                const qB = getNumericPlace(fullB.quartasPlace) ?? 9999;
-                                if (qA !== qB) return qA - qB;
-                                
-                                const mA = fullA.mpts !== undefined && fullA.mpts !== null ? Number(fullA.mpts) : 9999;
-                                const mB = fullB.mpts !== undefined && fullB.mpts !== null ? Number(fullB.mpts) : 9999;
-                                if (mA !== mB) return mA - mB;
+                              if (subLower.includes('final') && !subLower.includes('semi') && !subLower.includes('quarta') && !subLower.includes('oitava')) {
+                                // Final: preserve the exact order parsed from Stage Final file
+                                const idxA = cat.athletes.findIndex(x => x.plate === a.plate);
+                                const idxB = cat.athletes.findIndex(x => x.plate === b.plate);
+                                if (idxA !== -1 && idxB !== -1) {
+                                  return idxA - idxB;
+                                }
                               } else if (subLower.includes('semi')) {
                                 // Semi: sort by quartasPlace, then mpts
                                 const qA = getNumericPlace(fullA.quartasPlace) ?? 9999;

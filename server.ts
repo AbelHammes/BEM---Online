@@ -48,6 +48,20 @@ function getDefaultRaceState() {
   };
 }
 
+// Helper to check if a category name represents a single-run phase (Final, Semi, Quartas, Oitavas)
+function isSingleRunPhaseName(categoryName: string): boolean {
+  const nameLower = categoryName.toLowerCase();
+  return (
+    nameLower.includes("final") ||
+    nameLower.includes("semi") ||
+    nameLower.includes("quarta") ||
+    nameLower.includes("oitava") ||
+    nameLower.includes("1/2") ||
+    nameLower.includes("1/4") ||
+    nameLower.includes("1/8")
+  );
+}
+
 // Propagates and syncs athlete details (such as draws, points, places, times) across different subcategories/phases of the same base category
 function propagateAthleteData(currentState: any) {
   if (!currentState || !currentState.event || !currentState.event.categories) {
@@ -71,8 +85,9 @@ function propagateAthleteData(currentState: any) {
     const catsInGroup = baseGroups[baseName];
     const athleteMaster: { [plate: string]: any } = {};
 
-    // Collect all properties
+    // Collect all properties ONLY from non-single-run phases
     for (const cat of catsInGroup) {
+      if (isSingleRunPhaseName(cat.categoryName)) continue;
       if (!cat.athletes) continue;
       for (const ath of cat.athletes) {
         if (!ath.plate) continue;
@@ -99,8 +114,9 @@ function propagateAthleteData(currentState: any) {
       }
     }
 
-    // 3. Propagate master properties back to all athlete records in this base category
+    // 3. Propagate master properties back ONLY to non-single-run phases
     for (const cat of catsInGroup) {
+      if (isSingleRunPhaseName(cat.categoryName)) continue;
       if (!cat.athletes) continue;
       cat.athletes = cat.athletes.map((ath: any) => {
         if (!ath.plate) return ath;
