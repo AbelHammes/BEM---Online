@@ -568,7 +568,7 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
         const thRegex = /<TH[^>]*>([\s\S]*?)<\/TH>/gi;
         let thMatch;
         while ((thMatch = thRegex.exec(rowContent)) !== null) {
-          headers.push(thMatch[1].replace(/<[^>]*>/g, "").trim());
+          headers.push(stripHtmlTags(thMatch[1]));
         }
       } else {
         // TD row
