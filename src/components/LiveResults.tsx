@@ -774,7 +774,9 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
             // Filter subcategories based on selection
             let subsToRender: typeof group.subCategories = [];
-            if (!isAllMode) {
+            if (resultsMode === 'draws' && isAllMode) {
+              subsToRender = group.subCategories;
+            } else if (!isAllMode) {
               if (activeSub === 'MOTOS' && motosSub) {
                 subsToRender = [motosSub];
               } else if (activeSub === 'QUARTAS' && quartasSub) {
@@ -971,7 +973,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                 </div>
 
                 {/* Subcategory Tab Selector */}
-                {group.subCategories.length > 1 && (
+                {resultsMode !== 'entries' && group.subCategories.length > 1 && (
                   <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 bg-slate-50/30 border-b border-slate-100">
                     <button
                       onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'TODAS' }))}
@@ -1044,7 +1046,148 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                 )}
                 {/* Render tables for selected subgroups */}
                 <div className="divide-y divide-slate-100">
-                  {isAllMode ? (
+                  {resultsMode === 'entries' ? (
+                    // Special view: Registered pilots only (without phases or results)
+                    <div className="p-4 sm:p-5 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 border border-slate-200/60 p-3 sm:p-4 rounded-xl">
+                        <div>
+                          <h4 className="font-extrabold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5 uppercase tracking-wider">
+                            <Users size={14} className="text-emerald-600 shrink-0" />
+                            Atletas Inscritos - {group.baseName}
+                          </h4>
+                          <p className="text-[10px] text-slate-500 mt-1 font-medium leading-normal">
+                            Lista oficial de competidores confirmados para a categoria {group.baseName}.
+                          </p>
+                        </div>
+                        <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-full uppercase shrink-0 text-center tracking-wider">
+                          Confirmados
+                        </span>
+                      </div>
+
+                      {viewLayout === 'table' ? (
+                        <div className="overflow-x-auto scrollbar-thin rounded-xl border border-slate-150 shadow-xxs bg-white">
+                          <table className="w-full text-left border-collapse text-xxs sm:text-xs">
+                            <thead>
+                              <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-150 text-center">
+                                <th className="p-2 sm:p-3 w-12 sm:w-16 text-center text-[10px] sm:text-xs">Num</th>
+                                <th className="p-2 sm:p-3 w-16 sm:w-20 text-center text-[10px] sm:text-xs">Placa</th>
+                                <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs">Piloto</th>
+                                <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs hidden md:table-cell">Clube / Associação</th>
+                                <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs">Patrocinador / Equipe</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {combinedAthletes
+                                .filter(ath => {
+                                  if (!searchQuery) return true;
+                                  const q = searchQuery.toLowerCase();
+                                  const name = `${ath.firstName || ''} ${ath.lastName || ''}`.toLowerCase();
+                                  const plate = (ath.plate || '').toLowerCase();
+                                  const club = (ath.club || '').toLowerCase();
+                                  const sponsor = (ath.sponsor || '').toLowerCase();
+                                  const state = (ath.state || '').toLowerCase();
+                                  return name.includes(q) || plate.includes(q) || club.includes(q) || sponsor.includes(q) || state.includes(q);
+                                })
+                                .sort((a, b) => (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName))
+                                .map((ath, idx) => (
+                                  <tr key={ath.plate} className="hover:bg-slate-50/50 transition-colors">
+                                    {/* Row Number */}
+                                    <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-400">
+                                      {idx + 1}
+                                    </td>
+
+                                    {/* Plate */}
+                                    <td className="p-2 sm:p-3 text-center">
+                                      <span className="inline-block px-1.5 sm:px-2.5 py-0.5 rounded bg-yellow-400 border border-yellow-500 text-slate-950 font-mono font-extrabold text-[10px] sm:text-[11px] shadow-xxs">
+                                        {ath.plate}
+                                      </span>
+                                    </td>
+
+                                    {/* Name */}
+                                    <td className="p-2 sm:p-3">
+                                      <div className="font-extrabold text-slate-900 flex flex-wrap items-center gap-1">
+                                        <span>{ath.firstName} {ath.lastName}</span>
+                                        {ath.uciId && (
+                                          <span className="hidden sm:inline text-[9px] text-slate-400 font-mono font-normal">
+                                            UCI: {ath.uciId}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 font-mono mt-0.5 md:hidden flex flex-wrap items-center gap-1 leading-tight">
+                                        <span>{ath.club || 'Independente'}</span>
+                                        <span className="text-slate-300">•</span>
+                                        <span className="font-bold text-slate-600">UF: {ath.state || 'BRA'}</span>
+                                      </div>
+                                    </td>
+
+                                    {/* Club / Association */}
+                                    <td className="p-2 sm:p-3 text-slate-600 hidden md:table-cell">
+                                      <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Independente'}</div>
+                                      <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                                        <MapPin size={10} className="text-slate-400 shrink-0" />
+                                        <span>UF: {ath.state || 'BRA'}</span>
+                                      </div>
+                                    </td>
+
+                                    {/* Sponsor */}
+                                    <td className="p-2 sm:p-3 text-slate-600">
+                                      <div className="font-medium text-[10px] sm:text-xs text-slate-500 italic">
+                                        {ath.sponsor || '-'}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {combinedAthletes
+                            .filter(ath => {
+                              if (!searchQuery) return true;
+                              const q = searchQuery.toLowerCase();
+                              const name = `${ath.firstName || ''} ${ath.lastName || ''}`.toLowerCase();
+                              const plate = (ath.plate || '').toLowerCase();
+                              const club = (ath.club || '').toLowerCase();
+                              const sponsor = (ath.sponsor || '').toLowerCase();
+                              const state = (ath.state || '').toLowerCase();
+                              return name.includes(q) || plate.includes(q) || club.includes(q) || sponsor.includes(q) || state.includes(q);
+                            })
+                            .sort((a, b) => (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName))
+                            .map((ath, idx) => (
+                              <div
+                                key={ath.plate}
+                                className="p-4 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 transition-all shadow-xxs flex flex-col justify-between gap-3 relative overflow-hidden"
+                              >
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-200"></div>
+                                <div className="space-y-2.5 pl-1.5">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[9px] font-mono font-extrabold text-slate-400"># {idx + 1}</span>
+                                    <span className="px-2.5 py-0.5 rounded bg-yellow-400 border border-yellow-500 text-slate-900 font-mono font-extrabold text-xs shadow-xxs shrink-0">
+                                      #{ath.plate}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <h4 className="font-extrabold text-slate-900 text-sm leading-tight">
+                                      {ath.firstName} {ath.lastName}
+                                    </h4>
+                                    <div className="flex flex-col text-[10px] text-slate-500 font-semibold mt-1">
+                                      <span className="truncate">{ath.club || 'Independente'}</span>
+                                      <span className="font-mono text-slate-400 font-normal mt-0.5">UF: {ath.state || 'BRA'} | UCI: {ath.uciId || 'N/A'}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                {ath.sponsor && (
+                                  <div className="pt-2 border-t border-slate-100 text-[10px] text-slate-500 italic pl-1.5 bg-slate-50/50 p-2 rounded-xl">
+                                    <span className="font-bold text-slate-400">Patrocínio: </span> {ath.sponsor}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (isAllMode && resultsMode !== 'draws') ? (
                     // Unified Standing across all phases (Todas as Fases)
                     <div className="p-4 sm:p-5 space-y-6">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 border border-slate-200/60 p-3 sm:p-4 rounded-xl">
@@ -1246,7 +1389,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         )}
 
                         {/* WIDGET: PILOTOS QUE AVANÇAM DE FASE (TRANSFER BOX) */}
-                        {resultsMode !== 'entries' && advancedPilots.length > 0 && (
+                        {resultsMode !== 'entries' && resultsMode !== 'draws' && advancedPilots.length > 0 && (
                           <div className="bg-gradient-to-br from-emerald-50/50 to-green-50/20 border border-emerald-100 rounded-xl p-3 sm:p-4">
                             <h5 className="text-xxs sm:text-xs font-black text-emerald-800 flex items-center gap-1.5 uppercase tracking-wider mb-2.5">
                               <CheckCircle2 size={14} className="text-emerald-600" />
@@ -1337,10 +1480,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     <thead>
                                       <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-150 text-center">
                                         
-                                        {/* Rank Header */}
-                                        {resultsMode !== 'entries' && (
+                                        {/* Rank Header / Ordem de Largada */}
+                                        {resultsMode === 'draws' ? (
+                                          <th className="p-1.5 sm:p-3 w-10 sm:w-16 text-[10px] sm:text-xs text-center">Ordem</th>
+                                        ) : resultsMode !== 'entries' ? (
                                           <th className="p-1.5 sm:p-3 w-10 sm:w-16 text-[10px] sm:text-xs text-center">Pos</th>
-                                        )}
+                                        ) : null}
                                         
                                         {/* Plate Header */}
                                         <th className="p-1.5 sm:p-3 w-12 sm:w-16 text-center text-[10px] sm:text-xs">Placa</th>
@@ -1375,7 +1520,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         )}
  
                                         {/* Transfer Header */}
-                                        {resultsMode !== 'entries' && hasTransfer && (
+                                        {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && (
                                           <th className="p-1.5 sm:p-3 w-24 text-center text-emerald-800 text-[10px] sm:text-xs hidden md:table-cell">Classificação</th>
                                         )}
                                       </tr>
@@ -1397,13 +1542,17 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                           <tr
                                             key={ath.plate}
                                             className={`hover:bg-slate-50/50 transition-colors ${
-                                              isTransferring 
+                                              isTransferring && resultsMode !== 'draws'
                                                 ? 'bg-emerald-50/15 hover:bg-emerald-50/35 border-l-2 border-l-emerald-600' 
                                                 : ''
                                             }`}
                                           >
                                             {/* Rank Cell */}
-                                            {resultsMode !== 'entries' && (
+                                            {resultsMode === 'draws' ? (
+                                              <td className="p-1.5 sm:p-3 text-center font-mono font-bold text-slate-500">
+                                                {idx + 1}
+                                              </td>
+                                            ) : resultsMode !== 'entries' ? (
                                               <td className="p-1.5 sm:p-3 text-center font-bold">
                                                 {isFirst ? (
                                                   <div className="flex items-center justify-center gap-0.5">
@@ -1428,8 +1577,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                   </span>
                                                 )}
                                               </td>
-
-                                            )}
+                                            ) : null}
+                                            {/* Dummy tag to close the conditional safely if needed (none needed as we closed td) */}
  
                                             {/* Plate Graphic Plate representation */}
                                             <td className="p-1.5 sm:p-3 text-center">
@@ -1648,7 +1797,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             )}
  
                                             {/* Transfer Badge Cell */}
-                                            {resultsMode !== 'entries' && hasTransfer && (
+                                            {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && (
                                               <td className="p-1.5 sm:p-3 text-center hidden md:table-cell">
                                                 {ath.transfer ? (
                                                   <span 
@@ -1679,11 +1828,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     const rankInt = numPlace;
 
                                     const showTrophies = resultsMode === 'overall' && hasAnyNumericPlace && isFinalResultsSub(sub.subName);
-                                    const isFirst = showTrophies && rankInt === 1;
-                                    const isSecond = showTrophies && rankInt === 2;
-                                    const isThird = showTrophies && rankInt === 3;
-                                    const isPodium = showTrophies && rankInt !== null && rankInt <= 3;
-                                    const isTransferring = ath.transfer && ath.transfer.trim() !== "";
+                                    const showSpecialHighlights = resultsMode !== 'draws';
+                                    const isFirst = showSpecialHighlights && showTrophies && rankInt === 1;
+                                    const isSecond = showSpecialHighlights && showTrophies && rankInt === 2;
+                                    const isThird = showSpecialHighlights && showTrophies && rankInt === 3;
+                                    const isPodium = showSpecialHighlights && showTrophies && rankInt !== null && rankInt <= 3;
+                                    const isTransferring = showSpecialHighlights && ath.transfer && ath.transfer.trim() !== "";
 
                                     return (
                                       <div
@@ -1710,8 +1860,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                           <div className="flex items-start justify-between gap-2">
                                             <div className="flex items-center gap-2">
                                               
-                                              {/* Trophy Badge */}
-                                              {resultsMode !== 'entries' && (
+                                              {/* Trophy / Order Badge */}
+                                              {resultsMode === 'draws' ? (
+                                                <div className="w-7 h-7 rounded-full flex flex-col items-center justify-center bg-slate-100 border border-slate-200 text-slate-600 shrink-0 font-mono font-bold text-[10px]" title="Ordem de Largada">
+                                                  <span className="text-[7px] uppercase font-black tracking-tighter leading-none text-slate-400">Ord</span>
+                                                  <span className="leading-tight">{idx + 1}</span>
+                                                </div>
+                                              ) : resultsMode !== 'entries' ? (
                                                 <div className={`w-7 h-7 rounded-full flex items-center justify-center font-mono font-black text-xs shrink-0 ${
                                                   isFirst ? 'bg-yellow-100 text-yellow-800' :
                                                   isSecond ? 'bg-slate-100 text-slate-800' :
@@ -1720,7 +1875,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                 }`}>
                                                   {rankInt !== null ? `${rankInt}º` : ((resultsMode === 'overall' || resultsMode === 'motos') ? `${idx + 1}º` : (ath.place || '-'))}
                                                 </div>
-                                              )}
+                                              ) : null}
 
                                               {/* BMX Plate style Graphic */}
                                               <span className="px-2.5 py-0.5 rounded bg-yellow-400 border border-yellow-500 text-slate-900 font-mono font-extrabold text-xs shadow-xxs shrink-0">
