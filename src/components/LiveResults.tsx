@@ -222,11 +222,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
       const list = groupedMap[baseName];
       return {
         baseName,
-        subCategories: list.map((cat, idx) => ({
-          fullName: cat.categoryName,
-          subName: getSubCategoryName(cat.categoryName, idx),
-          data: cat,
-        })),
+        subCategories: list
+          .map((cat, idx) => ({
+            fullName: cat.categoryName,
+            subName: getSubCategoryName(cat.categoryName, idx),
+            data: cat,
+          }))
+          .filter((sub) => !sub.subName.toLowerCase().includes("sem resultados")),
       };
     });
   }, [groupedMap]);
@@ -1013,7 +1015,9 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                 ) : rankInt !== null ? (
                                                   <span className="text-slate-400 font-mono font-bold">{rankInt}º</span>
                                                 ) : (
-                                                  <span className="text-slate-400 font-mono font-bold">{ath.place || '-'}</span>
+                                                  <span className="text-slate-400 font-mono font-bold">
+                                                    {(resultsMode === 'overall' || resultsMode === 'motos') ? `${idx + 1}º` : (ath.place || '-')}
+                                                  </span>
                                                 )}
                                               </td>
 
@@ -1306,7 +1310,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                   isThird ? 'bg-amber-100 text-amber-800' :
                                                   'bg-slate-100 text-slate-600'
                                                 }`}>
-                                                  {rankInt !== null ? `${rankInt}º` : (ath.place || '-')}
+                                                  {rankInt !== null ? `${rankInt}º` : ((resultsMode === 'overall' || resultsMode === 'motos') ? `${idx + 1}º` : (ath.place || '-'))}
                                                 </div>
                                               )}
 

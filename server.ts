@@ -89,7 +89,7 @@ function propagateAthleteData(currentState: any) {
           "m1Place", "m2Place", "m3Place",
           "m1Time", "m2Time", "m3Time",
           "m1Reaction", "m2Reaction", "m3Reaction",
-          "place", "points", "transfer", "group"
+          "points", "transfer", "group"
         ];
 
         for (const key of keysToSync) {
@@ -178,6 +178,20 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
   const fileSponsor = jsonContent.EventSponsor || "Confederação Brasileira de Ciclismo";
   const reportCreated = jsonContent.ReportCreated || new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const reportType = jsonContent.ReportType || "RELATORIO";
+  const reportTypeUpper = reportType.toUpperCase();
+  const isDrawReport = reportTypeUpper.includes("MOTO DRAWS") || 
+                       reportTypeUpper.includes("SORTEIOS") || 
+                       reportTypeUpper.includes("SORTEIO") || 
+                       reportTypeUpper.includes("GATE") || 
+                       reportTypeUpper.includes("GATES") || 
+                       reportTypeUpper.includes("RAIA") || 
+                       reportTypeUpper.includes("RAIAS") || 
+                       reportTypeUpper.includes("LARGADA") || 
+                       reportTypeUpper.includes("ORDEM") ||
+                       reportTypeUpper.includes("INSCRITOS") ||
+                       reportTypeUpper.includes("ENTRY") ||
+                       reportTypeUpper.includes("ENTRIES") ||
+                       reportTypeUpper.includes("PILOTOS");
 
   // Track occurrences of category names in the current JSON report to differentiate groups/motos
   const tableCountsPerCategory: { [key: string]: number } = {};
@@ -188,7 +202,8 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
 
   for (const catRep of catReports) {
     const headerInfo = catRep["Category Heading"] || {};
-    let categoryName = normalizeCategoryName(headerInfo.Category || "Categoria Desconhecida");
+    let categoryName = normalizeCategoryName(headerInfo.Category || "");
+    if (!categoryName) continue;
     const transferText = headerInfo.Transfer || "";
     if (transferText && transferText.trim() !== "") {
       categoryName = `${categoryName} - ${transferText.trim()}`;
@@ -284,22 +299,12 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
         uciId: uciIdx !== -1 ? row[uciIdx]?.trim() : "",
         sponsor: sponsorIdx !== -1 ? row[sponsorIdx]?.trim() : "",
         transponder: transponderIdx !== -1 ? row[transponderIdx]?.trim() : "",
-        place: placeIdx !== -1 ? row[placeIdx]?.trim() : "",
+        place: (!isDrawReport && placeIdx !== -1) ? row[placeIdx]?.trim() : "",
         points: mptsIdx !== -1 ? parseInt(row[mptsIdx], 10) || undefined : undefined,
         sourceFile: filename
       };
 
       // Add Draws & Results
-      const reportTypeUpper = reportType.toUpperCase();
-      const isDrawReport = reportTypeUpper.includes("MOTO DRAWS") || 
-                           reportTypeUpper.includes("SORTEIOS") || 
-                           reportTypeUpper.includes("SORTEIO") || 
-                           reportTypeUpper.includes("GATE") || 
-                           reportTypeUpper.includes("GATES") || 
-                           reportTypeUpper.includes("RAIA") || 
-                           reportTypeUpper.includes("RAIAS") || 
-                           reportTypeUpper.includes("LARGADA") || 
-                           reportTypeUpper.includes("ORDEM");
 
       if (isDrawReport) {
         const cleanDrawValue = (val: string): string => {
@@ -470,8 +475,10 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
       phaseText = phaseText.replace(/^[-:\s]+/, "").trim();
     } else {
       const catNameMatch = /^([^(]+)/.exec(rawCaption);
-      categoryName = normalizeCategoryName(catNameMatch ? catNameMatch[1].trim() : "Categoria Desconhecida");
+      categoryName = normalizeCategoryName(catNameMatch ? catNameMatch[1].trim() : "");
     }
+
+    if (!categoryName) continue;
 
     if (phaseText && phaseText.trim() !== "") {
       categoryName = `${categoryName} - ${phaseText.trim()}`;
@@ -619,24 +626,6 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
         group = parts[1]?.trim();
       }
 
-      const athlete: any = {
-        plate,
-        firstName,
-        lastName,
-        fullName: fCompName,
-        club: clubIdx !== -1 ? stripHtmlTags(r[clubIdx]) : "Independente",
-        state: stateIdx !== -1 ? stripHtmlTags(r[stateIdx]) : "RS",
-        country: "BRA",
-        uciId: uciIdx !== -1 ? stripHtmlTags(r[uciIdx]) : "",
-        transponder: transponderIdx !== -1 ? stripHtmlTags(r[transponderIdx]) : "",
-        place: rawPlace,
-        group: group,
-        points: pointsIdx !== -1 ? parseInt(stripHtmlTags(r[pointsIdx]), 10) || undefined : undefined,
-        transfer: transferIdx !== -1 ? stripHtmlTags(r[transferIdx]) : "",
-        sourceFile: filename
-      };
-
-      // If BEM draws table (case-insensitive check)
       const htmlUpper = htmlContent.toUpperCase();
       const isDraw = htmlUpper.includes("BATERIA) SORTEIOS") || 
                      htmlUpper.includes("SORTEIO") || 
@@ -649,7 +638,29 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
                      htmlUpper.includes("MOTO DRAW") ||
                      htmlUpper.includes("MOTO DRAWS") ||
                      htmlUpper.includes("LARGADA") ||
-                     htmlUpper.includes("ORDEM DE LARGADA");
+                     htmlUpper.includes("ORDEM DE LARGADA") ||
+                     htmlUpper.includes("INSCRITOS") ||
+                     htmlUpper.includes("ENTRY") ||
+                     htmlUpper.includes("ENTRIES") ||
+                     htmlUpper.includes("PILOTOS");
+
+      const athlete: any = {
+        plate,
+        firstName,
+        lastName,
+        fullName: fCompName,
+        club: clubIdx !== -1 ? stripHtmlTags(r[clubIdx]) : "Independente",
+        state: stateIdx !== -1 ? stripHtmlTags(r[stateIdx]) : "RS",
+        country: "BRA",
+        uciId: uciIdx !== -1 ? stripHtmlTags(r[uciIdx]) : "",
+        transponder: transponderIdx !== -1 ? stripHtmlTags(r[transponderIdx]) : "",
+        place: isDraw ? "" : rawPlace,
+        group: group,
+        points: pointsIdx !== -1 ? parseInt(stripHtmlTags(r[pointsIdx]), 10) || undefined : undefined,
+        transfer: transferIdx !== -1 ? stripHtmlTags(r[transferIdx]) : "",
+        sourceFile: filename
+      };
+
       if (isDraw) {
         const cleanDrawValue = (val: string): string => {
           if (!val) return "";
