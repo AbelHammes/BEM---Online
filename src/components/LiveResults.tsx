@@ -114,6 +114,22 @@ const isSingleRunPhase = (subName: string): boolean => {
   );
 };
 
+// Helper to determine if a subcategory has a subsequent phase in the event
+const hasNextPhase = (currentSub: any, allSubs: any[]): boolean => {
+  if (!currentSub || !allSubs || allSubs.length <= 1) return false;
+  
+  if (isFinalResultsSub(currentSub.subName) || currentSub.subName.toLowerCase().includes('final')) {
+    return false;
+  }
+  
+  const idx = allSubs.findIndex(s => s.subName === currentSub.subName);
+  if (idx === -1 || idx === allSubs.length - 1) {
+    return false;
+  }
+  
+  return true;
+};
+
 // Helper to serialize subcategory athletes to check for duplicate content
 const getSubFingerprint = (sub: any): string => {
   const athletes = sub.data?.athletes || [];
@@ -1684,11 +1700,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         {/* Runs Headers */}
                                         {resultsMode !== 'entries' && resultsMode !== 'overall' && (
                                           isSingleRunPhase(sub.subName) ? (
-                                            <>
+                                            resultsMode === 'draws' ? null : (
+                                              <>
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">Sorteio / Gate</th>
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800">Tempo de Volta</th>
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">Reação</th>
                                             </>
+                                           )
                                           ) : (
                                             <>
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
@@ -1708,7 +1726,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         )}
  
                                         {/* Transfer Header */}
-                                        {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && (
+                                        {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && hasNextPhase(sub, group.subCategories) && (
                                           <th className="p-1.5 sm:p-3 w-24 text-center text-emerald-800 text-[10px] sm:text-xs ">Classif.</th>
                                         )}
                                       </tr>
@@ -1823,7 +1841,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             {/* Runs (Motos/Draws) */}
                                             {resultsMode !== 'entries' && resultsMode !== 'overall' && (
                                               isSingleRunPhase(sub.subName) ? (
-                                                <>
+                                                resultsMode === 'draws' ? null : (
+                                                  <>
                                                   {/* Sorteio / Gate */}
                                                   <td className="p-1 sm:p-3 text-center border-l border-slate-50">
                                                     {ath.m1Draw ? (
@@ -1853,6 +1872,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                     {isValidTime(ath.m1Reaction) ? `${ath.m1Reaction}s` : (ath.m1Reaction || '-')}
                                                   </td>
                                                 </>
+                                               )
                                               ) : (
                                                 <>
                                                   {/* Moto 1 */}
@@ -2018,7 +2038,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             )}
  
                                             {/* Transfer Badge Cell */}
-                                            {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && (
+                                            {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && hasNextPhase(sub, group.subCategories) && (
                                               <td className="p-1.5 sm:p-3 text-center">
                                                 {ath.transfer ? (
                                                   <span 
@@ -2054,7 +2074,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     const isSecond = showSpecialHighlights && showTrophies && rankInt === 2;
                                     const isThird = showSpecialHighlights && showTrophies && rankInt === 3;
                                     const isPodium = showSpecialHighlights && showTrophies && rankInt !== null && rankInt <= 3;
-                                    const isTransferring = showSpecialHighlights && ath.transfer && ath.transfer.trim() !== "";
+                                    const isTransferring = showSpecialHighlights && ath.transfer && ath.transfer.trim() !== "" && hasNextPhase(sub, group.subCategories);
 
                                     return (
                                       <div
@@ -2126,7 +2146,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         </div>
 
                                         {/* Card Bottom: M-PTS & Runs Details */}
-                                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 pl-1.5 bg-slate-50/50 p-2 rounded-xl">
+                                        {!(resultsMode === 'draws' && isSingleRunPhase(sub.subName)) && (
+                                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 pl-1.5 bg-slate-50/50 p-2 rounded-xl">
                                           
                                           {resultsMode === 'overall' && (
                                             <div className="shrink-0 text-center">
@@ -2249,8 +2270,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                                           </div>
                                         </div>
-
-                                      </div>
+                                      )}
+                                    </div>
                                     );
                                   })}
                                 </div>

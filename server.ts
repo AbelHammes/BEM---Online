@@ -83,13 +83,12 @@ function propagateAthleteData(currentState: any) {
 
         const master = athleteMaster[plate];
         
-        // We sync draws, places, times, reaction, points, transfer, etc.
+        // We sync draws, places, times, reaction, etc. (only the run-specific data, not points, transfer, or group which are unique to each phase)
         const keysToSync = [
           "m1Draw", "m2Draw", "m3Draw",
           "m1Place", "m2Place", "m3Place",
           "m1Time", "m2Time", "m3Time",
-          "m1Reaction", "m2Reaction", "m3Reaction",
-          "points", "transfer", "group"
+          "m1Reaction", "m2Reaction", "m3Reaction"
         ];
 
         for (const key of keysToSync) {
