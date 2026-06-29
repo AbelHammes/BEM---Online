@@ -168,7 +168,10 @@ function writeDB(data: any) {
 // Keeps un-normalized names with original round/group details to avoid duplicate 1st/2nd places
 function normalizeCategoryName(name: string): string {
   if (!name) return "";
-  return name.trim();
+  let norm = name.trim();
+  norm = norm.replace(/([a-zA-Z0-9_]+)Moto:/g, "$1: ");
+  norm = norm.replace(/\s+/g, " ");
+  return norm;
 }
 
 // BEM FILE PARSERS (Supports dynamic column indexing based on report headers)

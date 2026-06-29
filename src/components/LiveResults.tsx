@@ -119,7 +119,18 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
   const [activeSubCategoryMap, setActiveSubCategoryMap] = useState<Record<string, string>>({});
 
   const parseCategoryAndPhase = (fullName: string, index: number): { baseName: string, subName: string } => {
-    const parts = fullName.split(" - ");
+    let cleanFullName = fullName.trim().replace(/\s+/g, " ");
+
+    // Handle Moto: or Moto: 
+    cleanFullName = cleanFullName.replace(/Moto:\s*/gi, " - ");
+
+    // Handle colons
+    cleanFullName = cleanFullName.replace(/:\s*/g, " - ");
+
+    // Clean space around hyphens
+    cleanFullName = cleanFullName.replace(/\s*-\s*/g, " - ");
+
+    const parts = cleanFullName.split(" - ");
     
     const isPhaseSuffix = (str: string): boolean => {
       const lower = str.toLowerCase();
@@ -135,14 +146,43 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
         lower.includes('sorteio') ||
         lower.includes('fase') ||
         lower.includes('bateria') ||
-        lower.includes('moto')
+        lower.includes('moto') ||
+        lower.includes('semi') ||
+        lower.includes('quarta') ||
+        lower.includes('oitava')
       );
+    };
+
+    const getFormattedSubName = (sub: string): string => {
+      const lower = sub.toLowerCase();
+      if (lower === 'final' || lower.includes('final')) return 'Final';
+      if (lower.includes('semifinal') || lower === 'semi' || lower === 'sf') return 'Semifinal';
+      if (lower.includes('quarta') || lower === 'qf' || lower.includes('1/4')) return 'Quartas de Final';
+      if (lower.includes('oitava') || lower === 'of' || lower.includes('1/8')) return 'Oitavas de Final';
+      if (lower.includes('sorteio')) return 'Sorteio de Raias';
+      if (lower.includes('geral') || lower.includes('overall') || lower.includes('classifica') || lower.includes('resultado')) return 'Classificação Geral';
+      
+      if (lower.includes('grupo')) {
+        const match = sub.match(/\d+/);
+        if (match) {
+          return `Motos (Grupo ${match[0]})`;
+        }
+        return 'Motos';
+      }
+      if (lower.includes('moto')) {
+        const match = sub.match(/\d+/);
+        if (match) {
+          return `Motos ${match[0]}`;
+        }
+        return 'Motos';
+      }
+      return sub;
     };
 
     if (parts.length === 1) {
       return {
-        baseName: fullName,
-        subName: index === 0 ? "Grupo 1" : `Grupo ${index + 1}`
+        baseName: cleanFullName,
+        subName: "Motos"
       };
     }
     
@@ -150,12 +190,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
       if (isPhaseSuffix(parts[1])) {
         return {
           baseName: parts[0].trim(),
-          subName: parts[1].trim()
+          subName: getFormattedSubName(parts[1].trim())
         };
       } else {
         return {
-          baseName: fullName,
-          subName: index === 0 ? "Grupo 1" : `Grupo ${index + 1}`
+          baseName: cleanFullName,
+          subName: "Motos"
         };
       }
     }
@@ -165,12 +205,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
     if (isPhaseSuffix(lastPart)) {
       return {
         baseName: parts.slice(0, -1).join(" - ").trim(),
-        subName: lastPart.trim()
+        subName: getFormattedSubName(lastPart.trim())
       };
     } else {
       return {
-        baseName: fullName,
-        subName: index === 0 ? "Grupo 1" : `Grupo ${index + 1}`
+        baseName: cleanFullName,
+        subName: "Motos"
       };
     }
   };
@@ -191,6 +231,14 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
       return isNaN(parsed) ? null : parsed;
     }
     return null;
+  };
+
+  const getPointsVal = (pts: number | string | undefined | null): number => {
+    if (pts === undefined || pts === null || pts === '') return 9999;
+    if (typeof pts === 'number') return pts;
+    const clean = pts.toString().replace(/[^0-9]/g, '');
+    const parsed = parseInt(clean, 10);
+    return isNaN(parsed) ? 9999 : parsed;
   };
 
   // Grouping categories by base name
@@ -217,18 +265,40 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
     }[];
   }
 
+  const getPhaseOrderScore = (subName: string): number => {
+    const lower = subName.toLowerCase();
+    if (lower.includes('moto') || lower.includes('grupo')) return 1;
+    if (lower.includes('oitava') || lower.includes('1/8')) return 2;
+    if (lower.includes('quarta') || lower.includes('1/4')) return 3;
+    if (lower.includes('semi') || lower.includes('1/2')) return 4;
+    if (lower.includes('final')) return 5;
+    if (lower.includes('geral') || lower.includes('overall') || lower.includes('classifica')) return 6;
+    return 10;
+  };
+
   const groupedCategories: GroupedCategory[] = useMemo(() => {
     return Object.keys(groupedMap).map((baseName) => {
       const list = groupedMap[baseName];
+      const subCategories = list
+        .map((cat, idx) => ({
+          fullName: cat.categoryName,
+          subName: getSubCategoryName(cat.categoryName, idx),
+          data: cat,
+        }))
+        .filter((sub) => !sub.subName.toLowerCase().includes("sem resultados"));
+
+      // If there is only one subcategory containing 'moto' or 'grupo', let's name it precisely 'Motos'
+      const motoSubs = subCategories.filter(sub => sub.subName.toLowerCase().includes('moto') || sub.subName.toLowerCase().includes('grupo'));
+      if (motoSubs.length === 1) {
+        motoSubs[0].subName = 'Motos';
+      }
+
+      // Sort phases in a logical order: Motos -> Oitavas -> Quartas -> Semifinal -> Final -> Classificação Geral
+      subCategories.sort((a, b) => getPhaseOrderScore(a.subName) - getPhaseOrderScore(b.subName));
+
       return {
         baseName,
-        subCategories: list
-          .map((cat, idx) => ({
-            fullName: cat.categoryName,
-            subName: getSubCategoryName(cat.categoryName, idx),
-            data: cat,
-          }))
-          .filter((sub) => !sub.subName.toLowerCase().includes("sem resultados")),
+        subCategories,
       };
     });
   }, [groupedMap]);
@@ -353,9 +423,32 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
             `;
 
             const sortedAthletes = [...athletesByGroup[gKey]].sort((a, b) => {
-              const pA = parseInt(a.place || '99', 10);
-              const pB = parseInt(b.place || '99', 10);
-              return pA - pB;
+              const isFinal = isFinalResultsSub(sub.subName);
+
+              const pA = getNumericPlace(a.place);
+              const pB = getNumericPlace(b.place);
+              const scoreA = pA === null ? 9999 : pA;
+              const scoreB = pB === null ? 9999 : pB;
+
+              const ptsA = getPointsVal(a.points);
+              const ptsB = getPointsVal(b.points);
+
+              if (resultsMode === 'overall' || resultsMode === 'motos') {
+                if (isFinal) {
+                  // If it's a final results subcategory, place takes precedence
+                  if (scoreA !== scoreB) return scoreA - scoreB;
+                  if (ptsA !== ptsB) return ptsA - ptsB;
+                } else {
+                  // Otherwise, points (M-PTS) takes precedence
+                  if (ptsA !== ptsB) return ptsA - ptsB;
+                  if (scoreA !== scoreB) return scoreA - scoreB;
+                }
+              } else {
+                if (scoreA !== scoreB) return scoreA - scoreB;
+                if (ptsA !== ptsB) return ptsA - ptsB;
+              }
+
+              return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
             });
 
             sortedAthletes.forEach(ath => {
@@ -875,30 +968,30 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                             if (resultsMode === 'entries') {
                               return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
                             }
+
+                            const isFinal = isFinalResultsSub(sub.subName);
+
                             const pA = getNumericPlace(a.place);
                             const pB = getNumericPlace(b.place);
-
-                            // Put non-numeric places at the bottom
                             const scoreA = pA === null ? 9999 : pA;
                             const scoreB = pB === null ? 9999 : pB;
 
-                            if (scoreA !== scoreB) {
-                              return scoreA - scoreB;
-                            }
-
-                            // If places are equal (e.g. both are null / 9999), sort by points (ascending)
-                            const getPointsVal = (pts: number | string | undefined): number => {
-                              if (pts === undefined || pts === null || pts === '') return 9999;
-                              if (typeof pts === 'number') return pts;
-                              const clean = pts.toString().replace(/[^0-9]/g, '');
-                              const parsed = parseInt(clean, 10);
-                              return isNaN(parsed) ? 9999 : parsed;
-                            };
-
                             const ptsA = getPointsVal(a.points);
                             const ptsB = getPointsVal(b.points);
-                            if (ptsA !== ptsB) {
-                              return ptsA - ptsB;
+
+                            if (resultsMode === 'overall' || resultsMode === 'motos') {
+                              if (isFinal) {
+                                // If it's a final results subcategory, place takes precedence
+                                if (scoreA !== scoreB) return scoreA - scoreB;
+                                if (ptsA !== ptsB) return ptsA - ptsB;
+                              } else {
+                                // Otherwise, points (M-PTS) takes precedence
+                                if (ptsA !== ptsB) return ptsA - ptsB;
+                                if (scoreA !== scoreB) return scoreA - scoreB;
+                              }
+                            } else {
+                              if (scoreA !== scoreB) return scoreA - scoreB;
+                              if (ptsA !== ptsB) return ptsA - ptsB;
                             }
 
                             return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
