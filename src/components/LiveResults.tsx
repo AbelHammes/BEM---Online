@@ -1205,143 +1205,261 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         </span>
                       </div>
 
-                      <div className="overflow-x-auto scrollbar-thin rounded-xl border border-slate-150 shadow-xxs bg-white">
-                        <table className="w-full text-left border-collapse text-xxs sm:text-xs">
-                          <thead>
-                            <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-150 text-center">
-                              <th className="p-2 sm:p-3 w-10 sm:w-16 text-[10px] sm:text-xs text-center">Pos</th>
-                              <th className="p-2 sm:p-3 w-12 sm:w-16 text-center text-[10px] sm:text-xs">Placa</th>
-                              <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs">Piloto</th>
-                              <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs hidden md:table-cell">Clube / Associação</th>
-                              <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Motos (M1/M2/M3)</th>
-                              <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800 font-black bg-emerald-50/10">M-PTS</th>
-                              {hasQuartas && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Quartas</th>}
-                              {hasSemi && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Semi</th>}
-                              {hasFinal && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-amber-700 font-black">Final</th>}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
-                            {combinedAthletes.map((ath, idx) => {
-                              const rankInt = idx + 1;
-                              const isFirst = rankInt === 1;
-                              const isSecond = rankInt === 2;
-                              const isThird = rankInt === 3;
+                      {viewLayout === 'table' ? (
+                        <div className="overflow-x-auto scrollbar-thin rounded-xl border border-slate-100 shadow-xxs bg-white">
+                          <table className="w-full text-left border-collapse text-xxs sm:text-xs">
+                            <thead>
+                              <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-150 text-center">
+                                <th className="p-2 sm:p-3 w-10 sm:w-16 text-[10px] sm:text-xs text-center">Pos</th>
+                                <th className="p-2 sm:p-3 w-12 sm:w-16 text-center text-[10px] sm:text-xs">Placa</th>
+                                <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs">Piloto</th>
+                                <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs hidden md:table-cell">Clube / Associação</th>
+                                {resultsMode !== 'overall' && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Motos (M1/M2/M3)</th>}
+                                <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800 font-black bg-emerald-50/10">M-PTS</th>
+                                {resultsMode !== 'overall' && hasQuartas && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Quartas</th>}
+                                {resultsMode !== 'overall' && hasSemi && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Semi</th>}
+                                {resultsMode !== 'overall' && hasFinal && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-amber-700 font-black">Final</th>}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {combinedAthletes.map((ath, idx) => {
+                                const rankInt = idx + 1;
+                                const isFirst = rankInt === 1;
+                                const isSecond = rankInt === 2;
+                                const isThird = rankInt === 3;
 
-                              return (
-                                <tr key={ath.plate} className="hover:bg-slate-50/50 transition-colors">
-                                  {/* Rank */}
-                                  <td className="p-2 sm:p-3 text-center font-bold">
-                                    {isFirst ? (
-                                      <div className="flex items-center justify-center gap-0.5">
-                                        <Trophy size={14} className="text-yellow-500 fill-yellow-400 shrink-0" />
-                                        <span className="text-yellow-600 font-black text-xs">1º</span>
-                                      </div>
-                                    ) : isSecond ? (
-                                      <div className="flex items-center justify-center gap-0.5">
-                                        <Trophy size={14} className="text-slate-400 fill-slate-300 shrink-0" />
-                                        <span className="text-slate-600 font-black text-xs">2º</span>
-                                      </div>
-                                    ) : isThird ? (
-                                      <div className="flex items-center justify-center gap-0.5">
-                                        <Trophy size={14} className="text-amber-600 fill-amber-500 shrink-0" />
-                                        <span className="text-amber-700 font-black text-xs">3º</span>
-                                      </div>
-                                    ) : (
-                                      <span className="text-slate-400 font-mono font-bold">{rankInt}º</span>
-                                    )}
-                                  </td>
-
-                                  {/* Plate */}
-                                  <td className="p-2 sm:p-3 text-center">
-                                    <span className="inline-block px-1.5 sm:px-2.5 py-0.5 rounded bg-yellow-400 border border-yellow-500 text-slate-950 font-mono font-extrabold text-[10px] sm:text-[11px] shadow-xxs">
-                                      {ath.plate}
-                                    </span>
-                                  </td>
-
-                                  {/* Name */}
-                                  <td className="p-2 sm:p-3">
-                                    <div className="font-extrabold text-slate-900 flex flex-wrap items-center gap-1">
-                                      <span>{ath.firstName} {ath.lastName}</span>
-                                      {ath.uciId && (
-                                        <span className="hidden sm:inline text-[9px] text-slate-400 font-mono font-normal">
-                                          UCI: {ath.uciId}
-                                        </span>
+                                return (
+                                  <tr key={ath.plate} className="hover:bg-slate-50/50 transition-colors">
+                                    {/* Rank */}
+                                    <td className="p-2 sm:p-3 text-center font-bold">
+                                      {isFirst ? (
+                                        <div className="flex items-center justify-center gap-0.5">
+                                          <Trophy size={14} className="text-yellow-500 fill-yellow-400 shrink-0" />
+                                          <span className="text-yellow-600 font-black text-xs">1º</span>
+                                        </div>
+                                      ) : isSecond ? (
+                                        <div className="flex items-center justify-center gap-0.5">
+                                          <Trophy size={14} className="text-slate-400 fill-slate-300 shrink-0" />
+                                          <span className="text-slate-600 font-black text-xs">2º</span>
+                                        </div>
+                                      ) : isThird ? (
+                                        <div className="flex items-center justify-center gap-0.5">
+                                          <Trophy size={14} className="text-amber-600 fill-amber-500 shrink-0" />
+                                          <span className="text-amber-700 font-black text-xs">3º</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-slate-400 font-mono font-bold">{rankInt}º</span>
                                       )}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 font-mono mt-0.5 md:hidden flex flex-wrap items-center gap-1 leading-tight">
-                                      <span>{ath.club || 'Independente'}</span>
-                                      <span className="text-slate-300">•</span>
-                                      <span className="font-bold text-slate-600">UF: {ath.state || 'BRA'}</span>
-                                    </div>
-                                  </td>
+                                    </td>
 
-                                  {/* Club / Association */}
-                                  <td className="p-2 sm:p-3 text-slate-600 hidden md:table-cell">
-                                    <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Independente'}</div>
-                                    <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
-                                      <MapPin size={10} className="text-slate-400 shrink-0" />
-                                      <span>UF: {ath.state || 'BRA'}</span>
-                                    </div>
-                                  </td>
+                                    {/* Plate */}
+                                    <td className="p-2 sm:p-3 text-center">
+                                      <span className="inline-block px-1.5 sm:px-2.5 py-0.5 rounded bg-yellow-400 border border-yellow-500 text-slate-950 font-mono font-extrabold text-[10px] sm:text-[11px] shadow-xxs">
+                                        {ath.plate}
+                                      </span>
+                                    </td>
 
-                                  {/* Motos (M1/M2/M3) */}
-                                  <td className="p-2 sm:p-3 text-center font-semibold font-mono text-slate-700">
-                                    {ath.m1Place || ath.m2Place || ath.m3Place ? (
-                                      `${ath.m1Place || '-'} / ${ath.m2Place || '-'} / ${ath.m3Place || '-'}`
-                                    ) : (
-                                      <span className="text-slate-300">-</span>
+                                    {/* Name */}
+                                    <td className="p-2 sm:p-3">
+                                      <div className="font-extrabold text-slate-900 flex flex-wrap items-center gap-1">
+                                        <span>{ath.firstName} {ath.lastName}</span>
+                                        {ath.uciId && (
+                                          <span className="hidden sm:inline text-[9px] text-slate-400 font-mono font-normal">
+                                            UCI: {ath.uciId}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 font-mono mt-0.5 md:hidden flex flex-wrap items-center gap-1 leading-tight">
+                                        <span>{ath.club || 'Independente'}</span>
+                                        <span className="text-slate-300">•</span>
+                                        <span className="font-bold text-slate-600">UF: {ath.state || 'BRA'}</span>
+                                      </div>
+                                    </td>
+
+                                    {/* Club / Association */}
+                                    <td className="p-2 sm:p-3 text-slate-600 hidden md:table-cell">
+                                      <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Independente'}</div>
+                                      <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                                        <MapPin size={10} className="text-slate-400 shrink-0" />
+                                        <span>UF: {ath.state || 'BRA'}</span>
+                                      </div>
+                                    </td>
+
+                                    {/* Motos (M1/M2/M3) */}
+                                    {resultsMode !== 'overall' && (
+                                      <td className="p-2 sm:p-3 text-center font-semibold font-mono text-slate-700">
+                                        {ath.m1Place || ath.m2Place || ath.m3Place ? (
+                                          `${ath.m1Place || '-'} / ${ath.m2Place || '-'} / ${ath.m3Place || '-'}`
+                                        ) : (
+                                          <span className="text-slate-300">-</span>
+                                        )}
+                                      </td>
                                     )}
-                                  </td>
 
-                                  {/* M-PTS */}
-                                  <td className="p-2 sm:p-3 text-center font-black text-emerald-700 bg-emerald-50/20 text-xs">
-                                    {ath.mpts !== undefined && ath.mpts !== null ? ath.mpts : '-'}
-                                  </td>
+                                    {/* M-PTS */}
+                                    <td className="p-2 sm:p-3 text-center font-black text-emerald-700 bg-emerald-50/20 text-xs">
+                                      {ath.mpts !== undefined && ath.mpts !== null ? ath.mpts : '-'}
+                                    </td>
 
-                                  {/* Quartas */}
+                                    {/* Quartas */}
+                                    {resultsMode !== 'overall' && hasQuartas && (
+                                      <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
+                                        {ath.quartasPlace ? (
+                                          <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
+                                            {ath.quartasPlace}º
+                                          </span>
+                                        ) : (
+                                          <span className="text-slate-300">-</span>
+                                        )}
+                                      </td>
+                                    )}
+
+                                    {/* Semi */}
+                                    {resultsMode !== 'overall' && hasSemi && (
+                                      <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
+                                        {ath.semiPlace ? (
+                                          <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
+                                            {ath.semiPlace}º
+                                          </span>
+                                        ) : (
+                                          <span className="text-slate-300">-</span>
+                                        )}
+                                      </td>
+                                    )}
+
+                                    {/* Final */}
+                                    {resultsMode !== 'overall' && hasFinal && (
+                                      <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
+                                        {ath.finalPlace ? (
+                                          <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-xs font-black">
+                                            {ath.finalPlace}º
+                                          </span>
+                                        ) : (
+                                          <span className="text-slate-300">-</span>
+                                        )}
+                                      </td>
+                                    )}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        // CARDS VIEW FOR UNIFIED STANDING
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {combinedAthletes.map((ath, idx) => {
+                            const rankInt = idx + 1;
+                            const isFirst = rankInt === 1;
+                            const isSecond = rankInt === 2;
+                            const isThird = rankInt === 3;
+
+                            return (
+                              <div
+                                key={ath.plate}
+                                className={`p-4 rounded-2xl border transition-all shadow-xxs flex flex-col justify-between gap-3 relative overflow-hidden ${
+                                  isFirst ? 'bg-gradient-to-br from-yellow-50/40 via-white to-white border-yellow-300/60 ring-1 ring-yellow-400/10' :
+                                  isSecond ? 'bg-gradient-to-br from-slate-50/40 via-white to-white border-slate-300/60' :
+                                  isThird ? 'bg-gradient-to-br from-amber-50/40 via-white to-white border-amber-300/60' :
+                                  'bg-white border-slate-100 hover:border-slate-200'
+                                }`}
+                              >
+                                {/* Colored Side Strip */}
+                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                                  isFirst ? 'bg-yellow-400' :
+                                  isSecond ? 'bg-slate-300' :
+                                  isThird ? 'bg-amber-600' :
+                                  'bg-slate-200'
+                                }`}></div>
+
+                                <div className="space-y-2.5 pl-1.5">
+                                  {/* Card Top: Rank, Plate */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                      {/* Rank Badge */}
+                                      <div className={`w-7 h-7 rounded-full flex items-center justify-center font-mono font-black text-xs shrink-0 ${
+                                        isFirst ? 'bg-yellow-100 text-yellow-800' :
+                                        isSecond ? 'bg-slate-100 text-slate-800' :
+                                        isThird ? 'bg-amber-100 text-amber-800' :
+                                        'bg-slate-100 text-slate-600'
+                                      }`}>
+                                        {rankInt}º
+                                      </div>
+
+                                      {/* Plate Badge */}
+                                      <span className="px-2.5 py-0.5 rounded bg-yellow-400 border border-yellow-500 text-slate-900 font-mono font-extrabold text-xs shadow-xxs shrink-0">
+                                        #{ath.plate}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Pilot details */}
+                                  <div>
+                                    <h4 className="font-extrabold text-slate-900 text-sm leading-tight">
+                                      {ath.firstName} {ath.lastName}
+                                    </h4>
+                                    <div className="flex flex-col text-[10px] text-slate-500 font-semibold mt-1">
+                                      <span className="truncate">{ath.club || 'Independente'}</span>
+                                      <span className="font-mono text-slate-400 font-normal mt-0.5">UF: {ath.state || 'BRA'} | {ath.country || 'BRA'}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Card Bottom: Results Bubbles across ALL Phases */}
+                                {resultsMode !== 'overall' ? (
+                                  <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 pl-1.5 bg-slate-50/50 p-2 rounded-xl text-[10px]">
+                                  {/* Motos Bubble */}
+                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 min-w-[50px]">
+                                    <div className="text-[7px] text-slate-400 font-bold uppercase tracking-wider">Motos</div>
+                                    <div className="font-mono mt-0.5 font-extrabold text-slate-900 leading-none">
+                                      {ath.m1Place || ath.m2Place || ath.m3Place ? (
+                                        `${ath.m1Place || '-'}/${ath.m2Place || '-'}/${ath.m3Place || '-'}`
+                                      ) : '-'}
+                                    </div>
+                                    <div className="text-[7px] text-emerald-600 font-bold mt-0.5 font-mono">{ath.mpts !== undefined && ath.mpts !== null ? `${ath.mpts} PTS` : '-'}</div>
+                                  </div>
+
+                                  {/* Quartas Bubble */}
                                   {hasQuartas && (
-                                    <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
-                                      {ath.quartasPlace ? (
-                                        <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
-                                          {ath.quartasPlace}º
-                                        </span>
-                                      ) : (
-                                        <span className="text-slate-300">-</span>
-                                      )}
-                                    </td>
+                                    <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 min-w-[50px]">
+                                      <div className="text-[7px] text-slate-400 font-bold uppercase tracking-wider">Quartas</div>
+                                      <div className="font-mono mt-0.5 font-extrabold text-slate-900 leading-normal">
+                                        {ath.quartasPlace ? `${ath.quartasPlace}º` : '-'}
+                                      </div>
+                                    </div>
                                   )}
 
-                                  {/* Semi */}
+                                  {/* Semi Bubble */}
                                   {hasSemi && (
-                                    <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
-                                      {ath.semiPlace ? (
-                                        <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
-                                          {ath.semiPlace}º
-                                        </span>
-                                      ) : (
-                                        <span className="text-slate-300">-</span>
-                                      )}
-                                    </td>
+                                    <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 min-w-[50px]">
+                                      <div className="text-[7px] text-slate-400 font-bold uppercase tracking-wider">Semi</div>
+                                      <div className="font-mono mt-0.5 font-extrabold text-slate-900 leading-normal">
+                                        {ath.semiPlace ? `${ath.semiPlace}º` : '-'}
+                                      </div>
+                                    </div>
                                   )}
 
-                                  {/* Final */}
+                                  {/* Final Bubble */}
                                   {hasFinal && (
-                                    <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
-                                      {ath.finalPlace ? (
-                                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-xs font-black">
-                                          {ath.finalPlace}º
-                                        </span>
-                                      ) : (
-                                        <span className="text-slate-300">-</span>
-                                      )}
-                                    </td>
+                                    <div className="bg-amber-50/50 border border-amber-200 p-1.5 rounded-lg text-center flex-1 min-w-[50px]">
+                                      <div className="text-[7px] text-amber-700 font-bold uppercase tracking-wider">Final</div>
+                                      <div className="font-mono mt-0.5 font-black text-amber-800 leading-normal">
+                                        {ath.finalPlace ? `${ath.finalPlace}º` : '-'}
+                                      </div>
+                                    </div>
                                   )}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                                </div>
+                                ) : (
+                                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between pl-1.5 bg-emerald-50/20 p-2 rounded-xl text-[10px]">
+                                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[8px]">Pontos Geral</span>
+                                    <span className="font-mono font-black text-xs text-emerald-700">{ath.mpts !== undefined && ath.mpts !== null ? `${ath.mpts} PTS` : '-'}</span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     subsToRender.map((sub) => {
@@ -1381,7 +1499,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                       <div key={sub.fullName} className="p-4 sm:p-5 space-y-6">
                         
                         {/* Sub Category Name Badge */}
-                        {group.subCategories.length > 1 && activeSub === 'ALL' && (
+                        {group.subCategories.length > 1 && (
                           <div className="px-3.5 py-2.5 bg-slate-50 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-between border border-slate-200/50">
                             <span>Fase / Subgrupo: <span className="text-emerald-700 font-extrabold">{sub.subName}</span></span>
                             <span className="text-[10px] text-slate-400 font-normal">({cat.entriesCount} pilotos)</span>
@@ -1502,7 +1620,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         )}
  
                                         {/* Runs Headers */}
-                                        {resultsMode !== 'entries' && (
+                                        {resultsMode !== 'entries' && resultsMode !== 'overall' && (
                                           <>
                                             <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
                                               <span className="sm:hidden">{resultsMode === 'draws' ? 'S1' : 'M1'}</span>
@@ -1633,7 +1751,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             )}
  
                                             {/* Runs (Motos/Draws) */}
-                                            {resultsMode !== 'entries' && (
+                                            {resultsMode !== 'entries' && resultsMode !== 'overall' && (
                                               <>
                                                 {/* Moto 1 */}
                                                 <td className="p-1 sm:p-3 text-center border-l border-slate-50">
@@ -1917,7 +2035,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                           {/* Run blocks display depending on current viewing tab */}
                                           <div className="flex-1 flex gap-2 justify-end text-[10px]">
                                             
-                                            {resultsMode !== 'entries' && (
+                                            {resultsMode !== 'entries' && resultsMode !== 'overall' && (
                                               <>
                                                 {/* Moto 1 card bubble */}
                                                 <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
