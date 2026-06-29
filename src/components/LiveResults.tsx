@@ -102,6 +102,18 @@ const isFinalResultsSub = (subName: string): boolean => {
   return false;
 };
 
+// Helper to check if a subcategory represents a single-run phase (Final, Semi, Quartas, Oitavas)
+const isSingleRunPhase = (subName: string): boolean => {
+  if (!subName) return false;
+  const nameLower = subName.toLowerCase();
+  return (
+    nameLower.includes('final') ||
+    nameLower.includes('semi') ||
+    nameLower.includes('quarta') ||
+    nameLower.includes('oitava')
+  );
+};
+
 // Helper to serialize subcategory athletes to check for duplicate content
 const getSubFingerprint = (sub: any): string => {
   const athletes = sub.data?.athletes || [];
@@ -780,6 +792,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
               } else {
                 subsToRender = group.subCategories.filter(sub => !isFinalResultsSub(sub.subName));
               }
+            } else if (resultsMode === 'motos' && isAllMode) {
+              subsToRender = group.subCategories;
             } else if (!isAllMode) {
               if (activeSub === 'MOTOS' && motosSub) {
                 subsToRender = [motosSub];
@@ -934,9 +948,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                 ath.overallRankScore = score;
 
                 // Sum points of all phases for total classification points
-                const qPts = ath.quartasPoints !== undefined && ath.quartasPoints !== null ? Number(ath.quartasPoints) : 0;
-                const sPts = ath.semiPoints !== undefined && ath.semiPoints !== null ? Number(ath.semiPoints) : 0;
-                const fPts = ath.finalPoints !== undefined && ath.finalPoints !== null ? Number(ath.finalPoints) : 0;
+                const qNumPlace = getNumericPlace(ath.quartasPlace);
+                const sNumPlace = getNumericPlace(ath.semiPlace);
+                const fNumPlace = getNumericPlace(ath.finalPlace);
+
+                const qPts = ath.quartasPoints !== undefined && ath.quartasPoints !== null ? Number(ath.quartasPoints) : (qNumPlace !== null ? qNumPlace : 0);
+                const sPts = ath.semiPoints !== undefined && ath.semiPoints !== null ? Number(ath.semiPoints) : (sNumPlace !== null ? sNumPlace : 0);
+                const fPts = ath.finalPoints !== undefined && ath.finalPoints !== null ? Number(ath.finalPoints) : (fNumPlace !== null ? fNumPlace : 0);
                 const mPts = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 0;
                 ath.totalPoints = mPts + qPts + sPts + fPts;
               });
@@ -1201,7 +1219,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         </div>
                       )}
                     </div>
-                  ) : (isAllMode && resultsMode !== 'draws') ? (
+                  ) : (isAllMode && resultsMode === 'overall') ? (
                     // Unified Standing across all phases (Todas as Fases)
                     <div className="p-4 sm:p-5 space-y-6">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 border border-slate-200/60 p-3 sm:p-4 rounded-xl">
@@ -1482,7 +1500,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                       const cat = sub.data;
                     
                     // Filter athletes by Search query inside Results
-                    const filteredAthletesInCat = cat.athletes.filter((ath) => {
+                    let filteredAthletesInCat = cat.athletes.filter((ath) => {
                       if (!searchQuery) return true;
                       const q = searchQuery.toLowerCase();
                       return (
@@ -1492,6 +1510,34 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         (ath.state || '').toLowerCase().includes(q)
                       );
                     });
+
+                    // For the Final subcategory under battery results or drawings, show ONLY the pilots who passed to the final phase
+                    const isFinal = isFinalResultsSub(sub.subName);
+                    if (isFinal && (resultsMode === 'motos' || resultsMode === 'draws')) {
+                      // Collect finalist plates
+                      const finalistPlates = new Set<string>();
+                      if (finalSub) {
+                        finalSub.data.athletes.forEach(a => {
+                          if (a.plate) finalistPlates.add(a.plate);
+                        });
+                      }
+                      if (semiSub) {
+                        semiSub.data.athletes.forEach(a => {
+                          const p = getNumericPlace(a.place);
+                          const isTransfer = a.transfer && (a.transfer.toLowerCase().includes('final') || a.transfer.toLowerCase().includes('f'));
+                          if (isTransfer || (p !== null && p <= 4)) {
+                            if (a.plate) finalistPlates.add(a.plate);
+                          }
+                        });
+                      }
+                      
+                      if (finalistPlates.size > 0) {
+                        filteredAthletesInCat = filteredAthletesInCat.filter(ath => finalistPlates.has(ath.plate));
+                      } else {
+                        // Fallback: only keep athletes who have a place or run
+                        filteredAthletesInCat = filteredAthletesInCat.filter(ath => ath.place && ath.place.trim() !== "");
+                      }
+                    }
 
                     // Group athletes by their athlete.group (if present)
                     const athletesByGroup: Record<string, Athlete[]> = {};
@@ -1515,7 +1561,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                       <div key={sub.fullName} className="p-4 sm:p-5 space-y-6">
                         
                         {/* Sub Category Name Badge */}
-                        {group.subCategories.length > 1 && (
+                        {resultsMode === 'motos' && (
                           <div className="px-3.5 py-2.5 bg-slate-50 text-slate-700 rounded-xl font-bold text-xs flex items-center justify-between border border-slate-200/50">
                             <span>Fase / Subgrupo: <span className="text-emerald-700 font-extrabold">{sub.subName}</span></span>
                             <span className="text-[10px] text-slate-400 font-normal">({cat.entriesCount} pilotos)</span>
@@ -1637,20 +1683,28 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
  
                                         {/* Runs Headers */}
                                         {resultsMode !== 'entries' && resultsMode !== 'overall' && (
-                                          <>
-                                            <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
-                                              <span className="sm:hidden">{resultsMode === 'draws' ? 'S1' : 'M1'}</span>
-                                              <span className="hidden sm:inline">{resultsMode === 'draws' ? 'Sorteio M1' : 'Moto 1'}</span>
-                                            </th>
-                                            <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
-                                              <span className="sm:hidden">{resultsMode === 'draws' ? 'S2' : 'M2'}</span>
-                                              <span className="hidden sm:inline">{resultsMode === 'draws' ? 'Sorteio M2' : 'Moto 2'}</span>
-                                            </th>
-                                            <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
-                                              <span className="sm:hidden">{resultsMode === 'draws' ? 'S3' : 'M3'}</span>
-                                              <span className="hidden sm:inline">{resultsMode === 'draws' ? 'Sorteio M3' : 'Moto 3'}</span>
-                                            </th>
-                                          </>
+                                          isSingleRunPhase(sub.subName) ? (
+                                            <>
+                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">Sorteio / Gate</th>
+                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800">Tempo de Volta</th>
+                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">Reação</th>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
+                                                <span className="sm:hidden">{resultsMode === 'draws' ? 'S1' : 'M1'}</span>
+                                                <span className="hidden sm:inline">{resultsMode === 'draws' ? 'Sorteio M1' : 'Moto 1'}</span>
+                                              </th>
+                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
+                                                <span className="sm:hidden">{resultsMode === 'draws' ? 'S2' : 'M2'}</span>
+                                                <span className="hidden sm:inline">{resultsMode === 'draws' ? 'Sorteio M2' : 'Moto 2'}</span>
+                                              </th>
+                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
+                                                <span className="sm:hidden">{resultsMode === 'draws' ? 'S3' : 'M3'}</span>
+                                                <span className="hidden sm:inline">{resultsMode === 'draws' ? 'Sorteio M3' : 'Moto 3'}</span>
+                                              </th>
+                                            </>
+                                          )
                                         )}
  
                                         {/* Transfer Header */}
@@ -1765,14 +1819,14 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                 {ath.points ?? '-'}
                                               </td>
                                             )}
- 
+
                                             {/* Runs (Motos/Draws) */}
                                             {resultsMode !== 'entries' && resultsMode !== 'overall' && (
-                                              <>
-                                                {/* Moto 1 */}
-                                                <td className="p-1 sm:p-3 text-center border-l border-slate-50">
-                                                  {resultsMode === 'draws' ? (
-                                                    ath.m1Draw ? (
+                                              isSingleRunPhase(sub.subName) ? (
+                                                <>
+                                                  {/* Sorteio / Gate */}
+                                                  <td className="p-1 sm:p-3 text-center border-l border-slate-50">
+                                                    {ath.m1Draw ? (
                                                       (() => {
                                                         const p = parseDrawText(ath.m1Draw);
                                                         return p ? (
@@ -1784,150 +1838,183 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                               R. {p.lane}
                                                             </div>
                                                           </div>
-                                                        ) : <span className="font-mono text-slate-400 text-[9px] sm:text-[10px]">{ath.m1Draw}</span>;
+                                                        ) : <span className="font-mono text-slate-500 font-bold text-[10px] sm:text-xs">{ath.m1Draw}</span>;
                                                       })()
-                                                    ) : <span className="text-slate-300">-</span>
-                                                  ) : (
-                                                    <div className="space-y-0.5 sm:space-y-1">
-                                                      <span className={`text-[10px] sm:text-[11px] font-extrabold px-1 sm:px-1.5 py-0.5 rounded ${
-                                                        ath.m1Place?.includes('1') ? 'bg-amber-100 text-amber-800 font-black' : 'text-slate-700 bg-slate-100/70'
-                                                      }`}>
-                                                        {ath.m1Place || '-'}
-                                                      </span>
-                                                      
-                                                      {/* Time and Reaction on screens above sm */}
-                                                      <div className="hidden sm:block space-y-0.5 mt-1">
-                                                        {isValidTime(ath.m1Time) && (
-                                                          <div className="text-[9px] text-emerald-600 font-mono font-semibold flex items-center justify-center gap-0.5" title="Tempo de Volta">
-                                                            ⏱️ {ath.m1Time}s
-                                                          </div>
-                                                        )}
-                                                        {isValidTime(ath.m1Reaction) && (
-                                                          <div className="text-[8px] text-slate-400 font-mono" title="Reação de Portão">
-                                                            ⚡ {ath.m1Reaction}s
-                                                          </div>
-                                                        )}
-                                                      </div>
+                                                    ) : <span className="text-slate-300">-</span>}
+                                                  </td>
 
-                                                      {/* Compact Time and Reaction on mobile screens */}
-                                                      <div className="sm:hidden text-[8px] font-mono text-slate-500 scale-90 origin-center space-y-0.5 mt-0.5">
-                                                        {isValidTime(ath.m1Time) && (
-                                                          <div className="text-emerald-600 font-semibold">{ath.m1Time}s</div>
-                                                        )}
-                                                        {isValidTime(ath.m1Reaction) && (
-                                                          <div className="text-slate-400">{ath.m1Reaction}s</div>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                  )}
-                                                </td>
- 
-                                                {/* Moto 2 */}
-                                                <td className="p-1 sm:p-3 text-center border-l border-slate-50">
-                                                  {resultsMode === 'draws' ? (
-                                                    ath.m2Draw ? (
-                                                      (() => {
-                                                        const p = parseDrawText(ath.m2Draw);
-                                                        return p ? (
-                                                          <div className="text-xxs space-y-0.5">
-                                                            <div className="font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 sm:px-1.5 py-0.5 inline-block">
-                                                              B. {p.heat}
-                                                            </div>
-                                                            <div className="font-extrabold text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-1 sm:px-1.5 py-0.5 inline-block sm:ml-1">
-                                                              R. {p.lane}
-                                                            </div>
-                                                          </div>
-                                                        ) : <span className="font-mono text-slate-400 text-[9px] sm:text-[10px]">{ath.m2Draw}</span>;
-                                                      })()
-                                                    ) : <span className="text-slate-300">-</span>
-                                                  ) : (
-                                                    <div className="space-y-0.5 sm:space-y-1">
-                                                      <span className={`text-[10px] sm:text-[11px] font-extrabold px-1 sm:px-1.5 py-0.5 rounded ${
-                                                        ath.m2Place?.includes('1') ? 'bg-amber-100 text-amber-800 font-black' : 'text-slate-700 bg-slate-100/70'
-                                                      }`}>
-                                                        {ath.m2Place || '-'}
-                                                      </span>
-                                                      
-                                                      {/* Time and Reaction on screens above sm */}
-                                                      <div className="hidden sm:block space-y-0.5 mt-1">
-                                                        {isValidTime(ath.m2Time) && (
-                                                          <div className="text-[9px] text-emerald-600 font-mono font-semibold flex items-center justify-center gap-0.5" title="Tempo de Volta">
-                                                            ⏱️ {ath.m2Time}s
-                                                          </div>
-                                                        )}
-                                                        {isValidTime(ath.m2Reaction) && (
-                                                          <div className="text-[8px] text-slate-400 font-mono" title="Reação de Portão">
-                                                            ⚡ {ath.m2Reaction}s
-                                                          </div>
-                                                        )}
-                                                      </div>
+                                                  {/* Tempo de Volta */}
+                                                  <td className="p-1 sm:p-3 text-center border-l border-slate-50 font-mono text-[10px] sm:text-xs font-bold text-emerald-600">
+                                                    {isValidTime(ath.m1Time) ? `${ath.m1Time}s` : (ath.m1Time || '-')}
+                                                  </td>
 
-                                                      {/* Compact Time and Reaction on mobile screens */}
-                                                      <div className="sm:hidden text-[8px] font-mono text-slate-500 scale-90 origin-center space-y-0.5 mt-0.5">
-                                                        {isValidTime(ath.m2Time) && (
-                                                          <div className="text-emerald-600 font-semibold">{ath.m2Time}s</div>
-                                                        )}
-                                                        {isValidTime(ath.m2Reaction) && (
-                                                          <div className="text-slate-400">{ath.m2Reaction}s</div>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                  )}
-                                                </td>
- 
-                                                {/* Moto 3 */}
-                                                <td className="p-1 sm:p-3 text-center border-l border-slate-50">
-                                                  {resultsMode === 'draws' ? (
-                                                    ath.m3Draw ? (
-                                                      (() => {
-                                                        const p = parseDrawText(ath.m3Draw);
-                                                        return p ? (
-                                                          <div className="text-xxs space-y-0.5">
-                                                            <div className="font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 sm:px-1.5 py-0.5 inline-block">
-                                                              B. {p.heat}
+                                                  {/* Reação */}
+                                                  <td className="p-1 sm:p-3 text-center border-l border-slate-50 font-mono text-[10px] sm:text-xs text-slate-500">
+                                                    {isValidTime(ath.m1Reaction) ? `${ath.m1Reaction}s` : (ath.m1Reaction || '-')}
+                                                  </td>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  {/* Moto 1 */}
+                                                  <td className="p-1 sm:p-3 text-center border-l border-slate-50">
+                                                    {resultsMode === 'draws' ? (
+                                                      ath.m1Draw ? (
+                                                        (() => {
+                                                          const p = parseDrawText(ath.m1Draw);
+                                                          return p ? (
+                                                            <div className="text-xxs space-y-0.5">
+                                                              <div className="font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 sm:px-1.5 py-0.5 inline-block">
+                                                                B. {p.heat}
+                                                              </div>
+                                                              <div className="font-extrabold text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-1 sm:px-1.5 py-0.5 inline-block sm:ml-1">
+                                                                R. {p.lane}
+                                                              </div>
                                                             </div>
-                                                            <div className="font-extrabold text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-1 sm:px-1.5 py-0.5 inline-block sm:ml-1">
-                                                              R. {p.lane}
+                                                          ) : <span className="font-mono text-slate-400 text-[9px] sm:text-[10px]">{ath.m1Draw}</span>;
+                                                        })()
+                                                      ) : <span className="text-slate-300">-</span>
+                                                    ) : (
+                                                      <div className="space-y-0.5 sm:space-y-1">
+                                                        <span className={`text-[10px] sm:text-[11px] font-extrabold px-1 sm:px-1.5 py-0.5 rounded ${
+                                                          ath.m1Place?.includes('1') ? 'bg-amber-100 text-amber-800 font-black' : 'text-slate-700 bg-slate-100/70'
+                                                        }`}>
+                                                          {ath.m1Place || '-'}
+                                                        </span>
+                                                        
+                                                        {/* Time and Reaction on screens above sm */}
+                                                        <div className="hidden sm:block space-y-0.5 mt-1">
+                                                          {isValidTime(ath.m1Time) && (
+                                                            <div className="text-[9px] text-emerald-600 font-mono font-semibold flex items-center justify-center gap-0.5" title="Tempo de Volta">
+                                                              ⏱️ {ath.m1Time}s
                                                             </div>
-                                                          </div>
-                                                        ) : <span className="font-mono text-slate-400 text-[9px] sm:text-[10px]">{ath.m3Draw}</span>;
-                                                      })()
-                                                    ) : <span className="text-slate-300">-</span>
-                                                  ) : (
-                                                    <div className="space-y-0.5 sm:space-y-1">
-                                                      <span className={`text-[10px] sm:text-[11px] font-extrabold px-1 sm:px-1.5 py-0.5 rounded ${
-                                                        ath.m3Place?.includes('1') ? 'bg-amber-100 text-amber-800 font-black' : 'text-slate-700 bg-slate-100/70'
-                                                      }`}>
-                                                        {ath.m3Place || '-'}
-                                                      </span>
-                                                      
-                                                      {/* Time and Reaction on screens above sm */}
-                                                      <div className="hidden sm:block space-y-0.5 mt-1">
-                                                        {isValidTime(ath.m3Time) && (
-                                                          <div className="text-[9px] text-emerald-600 font-mono font-semibold flex items-center justify-center gap-0.5" title="Tempo de Volta">
-                                                            ⏱️ {ath.m3Time}s
-                                                          </div>
-                                                        )}
-                                                        {isValidTime(ath.m3Reaction) && (
-                                                          <div className="text-[8px] text-slate-400 font-mono" title="Reação de Portão">
-                                                            ⚡ {ath.m3Reaction}s
-                                                          </div>
-                                                        )}
-                                                      </div>
+                                                          )}
+                                                          {isValidTime(ath.m1Reaction) && (
+                                                            <div className="text-[8px] text-slate-400 font-mono" title="Reação de Portão">
+                                                              ⚡ {ath.m1Reaction}s
+                                                            </div>
+                                                          )}
+                                                        </div>
 
-                                                      {/* Compact Time and Reaction on mobile screens */}
-                                                      <div className="sm:hidden text-[8px] font-mono text-slate-500 scale-90 origin-center space-y-0.5 mt-0.5">
-                                                        {isValidTime(ath.m3Time) && (
-                                                          <div className="text-emerald-600 font-semibold">{ath.m3Time}s</div>
-                                                        )}
-                                                        {isValidTime(ath.m3Reaction) && (
-                                                          <div className="text-slate-400">{ath.m3Reaction}s</div>
-                                                        )}
+                                                        {/* Compact Time and Reaction on mobile screens */}
+                                                        <div className="sm:hidden text-[8px] font-mono text-slate-500 scale-90 origin-center space-y-0.5 mt-0.5">
+                                                          {isValidTime(ath.m1Time) && (
+                                                            <div className="text-emerald-600 font-semibold">{ath.m1Time}s</div>
+                                                          )}
+                                                          {isValidTime(ath.m1Reaction) && (
+                                                            <div className="text-slate-400">{ath.m1Reaction}s</div>
+                                                          )}
+                                                        </div>
                                                       </div>
-                                                    </div>
-                                                  )}
-                                                </td>
-                                              </>
+                                                    )}
+                                                  </td>
+
+                                                  {/* Moto 2 */}
+                                                  <td className="p-1 sm:p-3 text-center border-l border-slate-50">
+                                                    {resultsMode === 'draws' ? (
+                                                      ath.m2Draw ? (
+                                                        (() => {
+                                                          const p = parseDrawText(ath.m2Draw);
+                                                          return p ? (
+                                                            <div className="text-xxs space-y-0.5">
+                                                              <div className="font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 sm:px-1.5 py-0.5 inline-block">
+                                                                B. {p.heat}
+                                                              </div>
+                                                              <div className="font-extrabold text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-1 sm:px-1.5 py-0.5 inline-block sm:ml-1">
+                                                                R. {p.lane}
+                                                              </div>
+                                                            </div>
+                                                          ) : <span className="font-mono text-slate-400 text-[9px] sm:text-[10px]">{ath.m2Draw}</span>;
+                                                        })()
+                                                      ) : <span className="text-slate-300">-</span>
+                                                    ) : (
+                                                      <div className="space-y-0.5 sm:space-y-1">
+                                                        <span className={`text-[10px] sm:text-[11px] font-extrabold px-1 sm:px-1.5 py-0.5 rounded ${
+                                                          ath.m2Place?.includes('1') ? 'bg-amber-100 text-amber-800 font-black' : 'text-slate-700 bg-slate-100/70'
+                                                        }`}>
+                                                          {ath.m2Place || '-'}
+                                                        </span>
+                                                        
+                                                        {/* Time and Reaction on screens above sm */}
+                                                        <div className="hidden sm:block space-y-0.5 mt-1">
+                                                          {isValidTime(ath.m2Time) && (
+                                                            <div className="text-[9px] text-emerald-600 font-mono font-semibold flex items-center justify-center gap-0.5" title="Tempo de Volta">
+                                                              ⏱️ {ath.m2Time}s
+                                                            </div>
+                                                          )}
+                                                          {isValidTime(ath.m2Reaction) && (
+                                                            <div className="text-[8px] text-slate-400 font-mono" title="Reação de Portão">
+                                                              ⚡ {ath.m2Reaction}s
+                                                            </div>
+                                                          )}
+                                                        </div>
+
+                                                        {/* Compact Time and Reaction on mobile screens */}
+                                                        <div className="sm:hidden text-[8px] font-mono text-slate-500 scale-90 origin-center space-y-0.5 mt-0.5">
+                                                          {isValidTime(ath.m2Time) && (
+                                                            <div className="text-emerald-600 font-semibold">{ath.m2Time}s</div>
+                                                          )}
+                                                          {isValidTime(ath.m2Reaction) && (
+                                                            <div className="text-slate-400">{ath.m2Reaction}s</div>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    )}
+                                                  </td>
+
+                                                  {/* Moto 3 */}
+                                                  <td className="p-1 sm:p-3 text-center border-l border-slate-50">
+                                                    {resultsMode === 'draws' ? (
+                                                      ath.m3Draw ? (
+                                                        (() => {
+                                                          const p = parseDrawText(ath.m3Draw);
+                                                          return p ? (
+                                                            <div className="text-xxs space-y-0.5">
+                                                              <div className="font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 sm:px-1.5 py-0.5 inline-block">
+                                                                B. {p.heat}
+                                                              </div>
+                                                              <div className="font-extrabold text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-1 sm:px-1.5 py-0.5 inline-block sm:ml-1">
+                                                                R. {p.lane}
+                                                              </div>
+                                                            </div>
+                                                          ) : <span className="font-mono text-slate-400 text-[9px] sm:text-[10px]">{ath.m3Draw}</span>;
+                                                        })()
+                                                      ) : <span className="text-slate-300">-</span>
+                                                    ) : (
+                                                      <div className="space-y-0.5 sm:space-y-1">
+                                                        <span className={`text-[10px] sm:text-[11px] font-extrabold px-1 sm:px-1.5 py-0.5 rounded ${
+                                                          ath.m3Place?.includes('1') ? 'bg-amber-100 text-amber-800 font-black' : 'text-slate-700 bg-slate-100/70'
+                                                        }`}>
+                                                          {ath.m3Place || '-'}
+                                                        </span>
+                                                        
+                                                        {/* Time and Reaction on screens above sm */}
+                                                        <div className="hidden sm:block space-y-0.5 mt-1">
+                                                          {isValidTime(ath.m3Time) && (
+                                                            <div className="text-[9px] text-emerald-600 font-mono font-semibold flex items-center justify-center gap-0.5" title="Tempo de Volta">
+                                                              ⏱️ {ath.m3Time}s
+                                                            </div>
+                                                          )}
+                                                          {isValidTime(ath.m3Reaction) && (
+                                                            <div className="text-[8px] text-slate-400 font-mono" title="Reação de Portão">
+                                                              ⚡ {ath.m3Reaction}s
+                                                            </div>
+                                                          )}
+                                                        </div>
+
+                                                        {/* Compact Time and Reaction on mobile screens */}
+                                                        <div className="sm:hidden text-[8px] font-mono text-slate-500 scale-90 origin-center space-y-0.5 mt-0.5">
+                                                          {isValidTime(ath.m3Time) && (
+                                                            <div className="text-emerald-600 font-semibold">{ath.m3Time}s</div>
+                                                          )}
+                                                          {isValidTime(ath.m3Reaction) && (
+                                                            <div className="text-slate-400">{ath.m3Reaction}s</div>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                    )}
+                                                  </td>
+                                                </>
+                                              )
                                             )}
  
                                             {/* Transfer Badge Cell */}
@@ -2052,12 +2139,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                           <div className="flex-1 flex gap-2 justify-end text-[10px]">
                                             
                                             {resultsMode !== 'entries' && resultsMode !== 'overall' && (
-                                              <>
-                                                {/* Moto 1 card bubble */}
-                                                <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
-                                                  <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">M1</div>
-                                                  {resultsMode === 'draws' ? (
-                                                    ath.m1Draw ? (
+                                              isSingleRunPhase(sub.subName) ? (
+                                                <>
+                                                  {/* Sorteio / Gate card bubble */}
+                                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
+                                                    <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Gate</div>
+                                                    {ath.m1Draw ? (
                                                       (() => {
                                                         const p = parseDrawText(ath.m1Draw);
                                                         return p ? (
@@ -2067,61 +2154,97 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                           </div>
                                                         ) : <div className="font-mono text-slate-500 mt-0.5 font-bold text-[9px]">{ath.m1Draw}</div>;
                                                       })()
-                                                    ) : <span className="text-slate-300">-</span>
-                                                  ) : (
-                                                    <div className="mt-0.5 font-mono">
-                                                      <span className="font-extrabold text-slate-900">{ath.m1Place || '-'}</span>
-                                                      {isValidTime(ath.m1Time) && <span className="block text-[8px] text-emerald-600 font-semibold">{ath.m1Time}s</span>}
-                                                    </div>
-                                                  )}
-                                                </div>
+                                                    ) : <span className="text-slate-300">-</span>}
+                                                  </div>
 
-                                                {/* Moto 2 card bubble */}
-                                                <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
-                                                  <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">M2</div>
-                                                  {resultsMode === 'draws' ? (
-                                                    ath.m2Draw ? (
-                                                      (() => {
-                                                        const p = parseDrawText(ath.m2Draw);
-                                                        return p ? (
-                                                          <div className="font-mono mt-0.5 text-[9px] font-bold leading-tight">
-                                                            <div className="text-blue-600">B:{p.heat}</div>
-                                                            <div className="text-yellow-600">R:{p.lane}</div>
-                                                          </div>
-                                                        ) : <div className="font-mono text-slate-500 mt-0.5 font-bold text-[9px]">{ath.m2Draw}</div>;
-                                                      })()
-                                                    ) : <span className="text-slate-300">-</span>
-                                                  ) : (
-                                                    <div className="mt-0.5 font-mono">
-                                                      <span className="font-extrabold text-slate-900">{ath.m2Place || '-'}</span>
-                                                      {isValidTime(ath.m2Time) && <span className="block text-[8px] text-emerald-600 font-semibold">{ath.m2Time}s</span>}
+                                                  {/* Tempo card bubble */}
+                                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
+                                                    <div className="text-[8px] text-emerald-800 font-bold uppercase tracking-wider">Tempo</div>
+                                                    <div className="mt-0.5 font-mono text-[9px] font-bold text-emerald-600">
+                                                      {isValidTime(ath.m1Time) ? `${ath.m1Time}s` : (ath.m1Time || '-')}
                                                     </div>
-                                                  )}
-                                                </div>
+                                                  </div>
 
-                                                {/* Moto 3 card bubble */}
-                                                <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
-                                                  <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">M3</div>
-                                                  {resultsMode === 'draws' ? (
-                                                    ath.m3Draw ? (
-                                                      (() => {
-                                                        const p = parseDrawText(ath.m3Draw);
-                                                        return p ? (
-                                                          <div className="font-mono mt-0.5 text-[9px] font-bold leading-tight">
-                                                            <div className="text-blue-600">B:{p.heat}</div>
-                                                            <div className="text-yellow-600">R:{p.lane}</div>
-                                                          </div>
-                                                        ) : <div className="font-mono text-slate-500 mt-0.5 font-bold text-[9px]">{ath.m3Draw}</div>;
-                                                      })()
-                                                    ) : <span className="text-slate-300">-</span>
-                                                  ) : (
-                                                    <div className="mt-0.5 font-mono">
-                                                      <span className="font-extrabold text-slate-900">{ath.m3Place || '-'}</span>
-                                                      {isValidTime(ath.m3Time) && <span className="block text-[8px] text-emerald-600 font-semibold">{ath.m3Time}s</span>}
+                                                  {/* Reação card bubble */}
+                                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
+                                                    <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Reação</div>
+                                                    <div className="mt-0.5 font-mono text-[9px] text-slate-500">
+                                                      {isValidTime(ath.m1Reaction) ? `${ath.m1Reaction}s` : (ath.m1Reaction || '-')}
                                                     </div>
-                                                  )}
-                                                </div>
-                                              </>
+                                                  </div>
+                                                </>
+                                              ) : (
+                                                <>
+                                                  {/* Moto 1 card bubble */}
+                                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
+                                                    <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">M1</div>
+                                                    {resultsMode === 'draws' ? (
+                                                      ath.m1Draw ? (
+                                                        (() => {
+                                                          const p = parseDrawText(ath.m1Draw);
+                                                          return p ? (
+                                                            <div className="font-mono mt-0.5 text-[9px] font-bold leading-tight">
+                                                              <div className="text-blue-600">B:{p.heat}</div>
+                                                              <div className="text-yellow-600">R:{p.lane}</div>
+                                                            </div>
+                                                          ) : <div className="font-mono text-slate-500 mt-0.5 font-bold text-[9px]">{ath.m1Draw}</div>;
+                                                        })()
+                                                      ) : <span className="text-slate-300">-</span>
+                                                    ) : (
+                                                      <div className="mt-0.5 font-mono">
+                                                        <span className="font-extrabold text-slate-900">{ath.m1Place || '-'}</span>
+                                                        {isValidTime(ath.m1Time) && <span className="block text-[8px] text-emerald-600 font-semibold">{ath.m1Time}s</span>}
+                                                      </div>
+                                                    )}
+                                                  </div>
+
+                                                  {/* Moto 2 card bubble */}
+                                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
+                                                    <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">M2</div>
+                                                    {resultsMode === 'draws' ? (
+                                                      ath.m2Draw ? (
+                                                        (() => {
+                                                          const p = parseDrawText(ath.m2Draw);
+                                                          return p ? (
+                                                            <div className="font-mono mt-0.5 text-[9px] font-bold leading-tight">
+                                                              <div className="text-blue-600">B:{p.heat}</div>
+                                                              <div className="text-yellow-600">R:{p.lane}</div>
+                                                            </div>
+                                                          ) : <div className="font-mono text-slate-500 mt-0.5 font-bold text-[9px]">{ath.m2Draw}</div>;
+                                                        })()
+                                                      ) : <span className="text-slate-300">-</span>
+                                                    ) : (
+                                                      <div className="mt-0.5 font-mono">
+                                                        <span className="font-extrabold text-slate-900">{ath.m2Place || '-'}</span>
+                                                        {isValidTime(ath.m2Time) && <span className="block text-[8px] text-emerald-600 font-semibold">{ath.m2Time}s</span>}
+                                                      </div>
+                                                    )}
+                                                  </div>
+
+                                                  {/* Moto 3 card bubble */}
+                                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
+                                                    <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">M3</div>
+                                                    {resultsMode === 'draws' ? (
+                                                      ath.m3Draw ? (
+                                                        (() => {
+                                                          const p = parseDrawText(ath.m3Draw);
+                                                          return p ? (
+                                                            <div className="font-mono mt-0.5 text-[9px] font-bold leading-tight">
+                                                              <div className="text-blue-600">B:{p.heat}</div>
+                                                              <div className="text-yellow-600">R:{p.lane}</div>
+                                                            </div>
+                                                          ) : <div className="font-mono text-slate-500 mt-0.5 font-bold text-[9px]">{ath.m3Draw}</div>;
+                                                        })()
+                                                      ) : <span className="text-slate-300">-</span>
+                                                    ) : (
+                                                      <div className="mt-0.5 font-mono">
+                                                        <span className="font-extrabold text-slate-900">{ath.m3Place || '-'}</span>
+                                                        {isValidTime(ath.m3Time) && <span className="block text-[8px] text-emerald-600 font-semibold">{ath.m3Time}s</span>}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </>
+                                              )
                                             )}
 
                                           </div>

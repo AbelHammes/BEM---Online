@@ -244,6 +244,7 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
     const uciIdx = findColIdx(["uci id", "id da uci"]);
     const sponsorIdx = findColIdx(["sponsor", "patrocinador"]);
     const transponderIdx = findColIdx(["transponder", "tx", "chip", "trsp"]);
+    const drawIdx = findColIdx(["draw", "sorteio", "gate", "raia"]);
 
     // Result Columns
     const placeIdx = findColIdx(["place", "lugar"]);
@@ -306,6 +307,11 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
         points: mptsIdx !== -1 ? parseInt(row[mptsIdx], 10) || undefined : undefined,
         sourceFile: filename
       };
+
+      const drawVal = drawIdx !== -1 ? row[drawIdx]?.trim() : "";
+      if (drawVal) {
+        athlete.m1Draw = drawVal;
+      }
 
       // Add Draws & Results
 
@@ -548,6 +554,7 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
     const clubIdx = findHtmlColIdx(["clube", "club", "equipe", "team"]);
     const uciIdx = findHtmlColIdx(["uci", "id da uci", "uciid", "id uci"]);
     const transponderIdx = findHtmlColIdx(["transponder", "tx", "chip", "trsp"]);
+    const htmlDrawIdx = findHtmlColIdx(["sorteio", "draw", "raia", "gate"]);
     
     const placeIdx = findHtmlColIdx(["lugar", "place", "pos", "classificação", "classificacao", "rank"]);
     const pointsIdx = findHtmlColIdx(["m-pts", "pontos", "points", "m pts", "pts"]);
@@ -663,6 +670,11 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
         transfer: transferIdx !== -1 ? stripHtmlTags(r[transferIdx]) : "",
         sourceFile: filename
       };
+
+      const drawVal = htmlDrawIdx !== -1 && r[htmlDrawIdx] ? stripHtmlTags(r[htmlDrawIdx]).trim() : "";
+      if (drawVal) {
+        athlete.m1Draw = drawVal;
+      }
 
       if (isDraw) {
         const cleanDrawValue = (val: string): string => {

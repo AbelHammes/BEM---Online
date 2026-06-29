@@ -35,7 +35,7 @@ export default function App() {
   });
 
   // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'results' | 'athletes' | 'notifications' | 'pilot' | 'manager'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'results' | 'athletes' | 'notifications' | 'pilot' | 'manager'>('results');
   
   // App state
   const [raceState, setRaceState] = useState<RaceState | null>(null);
@@ -303,19 +303,6 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-1.5 sm:gap-2 py-3 w-full">
             
-            <button
-              id="nav-tab-dashboard"
-              onClick={() => setActiveTab('dashboard')}
-              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xxs sm:text-xs font-bold rounded-xl cursor-pointer transition-all duration-150 grow sm:grow-0 justify-center sm:justify-start ${
-                activeTab === 'dashboard'
-                  ? 'bg-gradient-to-r from-emerald-800 to-emerald-700 text-white shadow-sm border-b-2 border-b-yellow-400 ring-1 ring-emerald-600/20'
-                  : 'text-slate-600 bg-slate-50 hover:bg-slate-100/80 hover:text-slate-900 border border-slate-200/50'
-              }`}
-            >
-              <LayoutDashboard size={14} className={activeTab === 'dashboard' ? 'text-yellow-400' : 'text-slate-500'} />
-              Painel Único
-            </button>
-
             <button
               id="nav-tab-results"
               onClick={() => setActiveTab('results')}
