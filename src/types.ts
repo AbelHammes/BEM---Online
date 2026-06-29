@@ -25,6 +25,11 @@ export interface Athlete {
   m3Draw?: string;
   group?: string; // e.g. "57"
   transfer?: string; // e.g. "S13"
+  totalPoints?: number;
+  mpts?: number;
+  fullFinal?: string;
+  fullSemi?: string;
+  fullQuartas?: string;
 }
 
 export interface CategoryData {

@@ -270,6 +270,30 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
     const rankIdx = findColIdx(["rank"]);
     const transferIdx = findColIdx(["transfer", "transferir", "transferencia", "transferência"]);
 
+    let finalColIdx = headers.findIndex(h => {
+      const hl = h.trim().toLowerCase();
+      return hl === "final";
+    });
+    if (finalColIdx === -1) {
+      finalColIdx = headers.findIndex(h => h.toLowerCase().includes("final place") || h.toLowerCase() === "final");
+    }
+
+    let semiColIdx = headers.findIndex(h => {
+      const hl = h.trim().toLowerCase();
+      return hl === "1/2" || hl === "semi";
+    });
+    if (semiColIdx === -1) {
+      semiColIdx = headers.findIndex(h => h.toLowerCase().includes("1/2 place") || h.toLowerCase().includes("semifinal"));
+    }
+
+    let quartasColIdx = headers.findIndex(h => {
+      const hl = h.trim().toLowerCase();
+      return hl === "1/4" || hl === "quartas" || hl === "quarta";
+    });
+    if (quartasColIdx === -1) {
+      quartasColIdx = headers.findIndex(h => h.toLowerCase().includes("1/4 place") || h.toLowerCase().includes("quarter"));
+    }
+
     // Moto columns
     const m1Idx = findColIdx(["m1 place", "m1 lugar", "m 1 Place", "m1"]);
     const m1TimeIdx = findColIdx([
@@ -326,6 +350,12 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
         points: mptsIdx !== -1 ? parseInt(row[mptsIdx], 10) || undefined : undefined,
         sourceFile: filename
       };
+
+      if (isFullResults) {
+        athlete.fullFinal = finalColIdx !== -1 ? row[finalColIdx]?.trim() : "";
+        athlete.fullSemi = semiColIdx !== -1 ? row[semiColIdx]?.trim() : "";
+        athlete.fullQuartas = quartasColIdx !== -1 ? row[quartasColIdx]?.trim() : "";
+      }
 
       const drawVal = drawIdx !== -1 ? row[drawIdx]?.trim() : "";
       if (drawVal) {
@@ -583,6 +613,30 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
     const placeIdx = findHtmlColIdx(["lugar", "place", "pos", "classificação", "classificacao", "rank"]);
     const pointsIdx = findHtmlColIdx(["m-pts", "pontos", "points", "m pts", "pts"]);
     const transferIdx = findHtmlColIdx(["transfer", "transferir", "transferencia", "transferência"]);
+
+    let finalColIdx = headers.findIndex(h => {
+      const hl = h.trim().toLowerCase();
+      return hl === "final";
+    });
+    if (finalColIdx === -1) {
+      finalColIdx = headers.findIndex(h => h.toLowerCase().includes("final place") || h.toLowerCase() === "final");
+    }
+
+    let semiColIdx = headers.findIndex(h => {
+      const hl = h.trim().toLowerCase();
+      return hl === "1/2" || hl === "semi";
+    });
+    if (semiColIdx === -1) {
+      semiColIdx = headers.findIndex(h => h.toLowerCase().includes("1/2 place") || h.toLowerCase().includes("semifinal"));
+    }
+
+    let quartasColIdx = headers.findIndex(h => {
+      const hl = h.trim().toLowerCase();
+      return hl === "1/4" || hl === "quartas" || hl === "quarta";
+    });
+    if (quartasColIdx === -1) {
+      quartasColIdx = headers.findIndex(h => h.toLowerCase().includes("1/4 place") || h.toLowerCase().includes("quarter"));
+    }
     
     const m1TimeIdx = findHtmlColIdx([
       "m1 lap time", "m1 tempo de volta", "m1 tempo", "m1-tempo", "m 1 lap time", "m 1 tempo", "m 1 time", "m1 time", "m1 t.", "m1 t", "t1", "t.1", "tempo de volta", "tempo de volta 1", "tempo", "tempo 1", "lap time", "time", "t.", "t", "t m1", "tm1", "tempo m1", "m1 t. volta", "m1 t volta", "volta m1"
@@ -695,6 +749,12 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
         transfer: transferIdx !== -1 ? stripHtmlTags(r[transferIdx]) : "",
         sourceFile: filename
       };
+
+      if (isFullResults) {
+        athlete.fullFinal = finalColIdx !== -1 ? stripHtmlTags(r[finalColIdx]) : "";
+        athlete.fullSemi = semiColIdx !== -1 ? stripHtmlTags(r[semiColIdx]) : "";
+        athlete.fullQuartas = quartasColIdx !== -1 ? stripHtmlTags(r[quartasColIdx]) : "";
+      }
 
       const drawVal = htmlDrawIdx !== -1 && r[htmlDrawIdx] ? stripHtmlTags(r[htmlDrawIdx]).trim() : "";
       if (drawVal) {

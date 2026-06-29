@@ -33,11 +33,6 @@ const isValidTime = (t?: string) => {
   const clean = t.trim();
   return (
     clean !== "" &&
-    clean !== "0" &&
-    clean !== "0.000" &&
-    clean !== "0,000" &&
-    clean !== "0.00" &&
-    clean !== "0,00" &&
     clean !== "-"
   );
 };
@@ -469,7 +464,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                       <th style="width: 10%;">Placa</th>
                       <th class="text-left" style="width: 32%;">Piloto</th>
                       <th class="text-left" style="width: 25%;">Clube / UF</th>
-                      ${resultsMode === 'overall' ? '<th style="width: 10%;">M-PTS</th>' : ''}
+                      ${resultsMode === 'overall' ? '<th style="width: 10%;">Total</th>' : ''}
                       <th style="width: 12%;">Moto 1</th>
                       <th style="width: 12%;">Moto 2</th>
                       <th style="width: 12%;">Moto 3</th>
@@ -527,7 +522,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   <td><strong>#${ath.plate}</strong></td>
                   <td class="text-left" style="font-weight: 600;">${ath.firstName} ${ath.lastName}</td>
                   <td class="text-left">${ath.club || 'Avulso'} (${ath.state || 'BRA'})</td>
-                  ${resultsMode === 'overall' ? `<td class="points-cell">${ath.points ?? '-'}</td>` : ''}
+                  ${resultsMode === 'overall' ? `<td class="points-cell">${ath.totalPoints ?? '-'}</td>` : ''}
                   <td>${m1Str}</td>
                   <td>${m2Str}</td>
                   <td>${m3Str}</td>
@@ -956,10 +951,25 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                 // Let's copy properties from overallSub to athletesMap
                 overallSub.data.athletes.forEach(ath => {
                   const plate = ath.plate;
+
+                  const finalStr = ath.fullFinal || "";
+                  const semiStr = ath.fullSemi || "";
+                  const quartasStr = ath.fullQuartas || "";
+
+                  const finalPts = getNumericPlace(finalStr) || 0;
+                  const semiPts = getNumericPlace(semiStr) || 0;
+                  const quartasPts = getNumericPlace(quartasStr) || 0;
+                  const mPts = ath.points !== undefined && ath.points !== null ? Number(ath.points) : 0;
+
+                  const calculatedTotalPoints = finalPts + semiPts + quartasPts + mPts;
+                  
                   if (athletesMap[plate]) {
                     // Update points / mpts / totalPoints
-                    athletesMap[plate].totalPoints = ath.points;
-                    athletesMap[plate].mpts = ath.points;
+                    athletesMap[plate].totalPoints = calculatedTotalPoints;
+                    athletesMap[plate].mpts = mPts;
+                    athletesMap[plate].fullFinal = finalStr;
+                    athletesMap[plate].fullSemi = semiStr;
+                    athletesMap[plate].fullQuartas = quartasStr;
                     if (ath.place) {
                       athletesMap[plate].finalPlace = ath.place;
                     }
@@ -974,8 +984,11 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                       state: ath.state,
                       uciId: ath.uciId,
                       sponsor: ath.sponsor,
-                      totalPoints: ath.points,
-                      mpts: ath.points,
+                      totalPoints: calculatedTotalPoints,
+                      mpts: mPts,
+                      fullFinal: finalStr,
+                      fullSemi: semiStr,
+                      fullQuartas: quartasStr,
                     };
                   }
                 });
@@ -1782,7 +1795,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         
                                         {/* overall M-PTS Header */}
                                         {resultsMode === 'overall' && (
-                                          <th className="p-1.5 sm:p-3 w-12 sm:w-16 text-center text-emerald-800 text-[10px] sm:text-xs">M-PTS</th>
+                                          <th className="p-1.5 sm:p-3 w-12 sm:w-16 text-center text-emerald-800 text-[10px] sm:text-xs">Total</th>
                                         )}
  
                                         {/* Runs Headers */}
@@ -1922,7 +1935,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             {/* Overall M-PTS */}
                                             {resultsMode === 'overall' && (
                                               <td className="p-1.5 sm:p-3 text-center font-black text-emerald-700 bg-emerald-50/20 text-xs">
-                                                {ath.points ?? '-'}
+                                                {ath.totalPoints ?? '-'}
                                               </td>
                                             )}
 
@@ -2240,7 +2253,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                           {resultsMode === 'overall' && (
                                             <div className="shrink-0 text-center">
                                               <div className="text-[8px] text-slate-400 uppercase font-black tracking-wider">Pontos</div>
-                                              <div className="text-sm font-black text-emerald-700 font-mono">{ath.points ?? '-'}</div>
+                                              <div className="text-sm font-black text-emerald-700 font-mono">{ath.totalPoints ?? '-'}</div>
                                             </div>
                                           )}
 
