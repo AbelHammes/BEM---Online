@@ -223,6 +223,35 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
     return parseCategoryAndPhase(name, index).subName;
   };
 
+  const getMotosSub = (group: GroupedCategory) => {
+    return group.subCategories.find(sub => 
+      sub.subName.toLowerCase().includes('moto') || 
+      sub.subName.toLowerCase().includes('grupo')
+    );
+  };
+
+  const getQuartasSub = (group: GroupedCategory) => {
+    return group.subCategories.find(sub => 
+      sub.subName.toLowerCase().includes('quarta') || 
+      sub.subName.toLowerCase().includes('1/4')
+    );
+  };
+
+  const getSemiSub = (group: GroupedCategory) => {
+    return group.subCategories.find(sub => 
+      sub.subName.toLowerCase().includes('semi') || 
+      sub.subName.toLowerCase().includes('1/2')
+    );
+  };
+
+  const getFinalSub = (group: GroupedCategory) => {
+    return group.subCategories.find(sub => 
+      sub.subName.toLowerCase().includes('final') && 
+      !sub.subName.toLowerCase().includes('semi') && 
+      !sub.subName.toLowerCase().includes('quarta')
+    );
+  };
+
   const getNumericPlace = (placeStr: string | undefined | null): number | null => {
     if (!placeStr) return null;
     const match = placeStr.match(/\d+/);
@@ -729,69 +758,182 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
           </div>
         ) : (
           displayedGroupedCategories.map((group) => {
-            const activeSub = activeSubCategoryMap[group.baseName] || 'ALL';
+            const activeSub = activeSubCategoryMap[group.baseName] || 'TODAS';
 
-            const isGeneralResultSub = (subName: string): boolean => {
-              const nameLower = subName.toLowerCase();
-              return (
-                nameLower.includes('classifica') ||
-                nameLower.includes('geral') ||
-                nameLower.includes('overall') ||
-                nameLower.includes('standing')
-              );
-            };
+            const motosSub = getMotosSub(group);
+            const quartasSub = getQuartasSub(group);
+            const semiSub = getSemiSub(group);
+            const finalSub = getFinalSub(group);
 
-            const hasDetailedPhases = group.subCategories.some(sub => sub.fullName !== group.baseName);
+            const hasMotos = !!motosSub;
+            const hasQuartas = !!quartasSub;
+            const hasSemi = !!semiSub;
+            const hasFinal = !!finalSub;
 
-            const rawGrupoSubs = group.subCategories.filter(sub => {
-              if (hasDetailedPhases && sub.fullName === group.baseName) {
-                return false;
-              }
-              return !isGeneralResultSub(sub.subName);
-            });
-
-            // Deduplicate rawGrupoSubs to avoid identical phases (e.g. "Resultados em pontos" and "Sem resultados Finais" displaying the same info)
-            const deduplicatedGrupoSubs: typeof rawGrupoSubs = [];
-            if (rawGrupoSubs.length > 0) {
-              const fingerprintMap = new Map<string, typeof rawGrupoSubs>();
-              for (const sub of rawGrupoSubs) {
-                const fp = getSubFingerprint(sub);
-                if (!fingerprintMap.has(fp)) {
-                  fingerprintMap.set(fp, []);
-                }
-                fingerprintMap.get(fp)!.push(sub);
-              }
-
-              const bestSubs = new Set<typeof rawGrupoSubs[0]>();
-              for (const [fp, duplicates] of fingerprintMap.entries()) {
-                let best = duplicates.find(d => !d.subName.toLowerCase().includes('sem resultados'));
-                if (!best) {
-                  best = duplicates[0];
-                }
-                bestSubs.add(best);
-              }
-
-              // Maintain original relative order
-              rawGrupoSubs.forEach(sub => {
-                if (bestSubs.has(sub)) {
-                  deduplicatedGrupoSubs.push(sub);
-                }
-              });
-            }
-
-            const grupoSubs = deduplicatedGrupoSubs;
-
-            const generalSubs = group.subCategories.filter(sub => {
-              if (hasDetailedPhases && sub.fullName === group.baseName) {
-                return true;
-              }
-              return isGeneralResultSub(sub.subName);
-            });
+            const isAllMode = activeSub === 'TODAS' || activeSub === 'ALL';
 
             // Filter subcategories based on selection
-            const subsToRender = activeSub === 'ALL'
-              ? (grupoSubs.length > 0 ? grupoSubs : group.subCategories)
-              : group.subCategories.filter((sub) => sub.fullName === activeSub);
+            let subsToRender: typeof group.subCategories = [];
+            if (!isAllMode) {
+              if (activeSub === 'MOTOS' && motosSub) {
+                subsToRender = [motosSub];
+              } else if (activeSub === 'QUARTAS' && quartasSub) {
+                subsToRender = [quartasSub];
+              } else if (activeSub === 'SEMI' && semiSub) {
+                subsToRender = [semiSub];
+              } else if (activeSub === 'FINAL' && finalSub) {
+                subsToRender = [finalSub];
+              } else {
+                const matched = group.subCategories.find(sub => sub.fullName === activeSub);
+                subsToRender = matched ? [matched] : (motosSub ? [motosSub] : group.subCategories.slice(0, 1));
+              }
+            }
+
+            // Extract all unique athletes for the unified "Todas as Fases" view
+            const combinedAthletes = (() => {
+              const athletesMap: Record<string, any> = {};
+
+              // 1. Process Motos
+              if (motosSub) {
+                motosSub.data.athletes.forEach(ath => {
+                  const plate = ath.plate;
+                  if (!athletesMap[plate]) {
+                    athletesMap[plate] = {
+                      plate,
+                      firstName: ath.firstName,
+                      lastName: ath.lastName,
+                      fullName: ath.fullName,
+                      club: ath.club,
+                      state: ath.state,
+                      uciId: ath.uciId,
+                      sponsor: ath.sponsor,
+                    };
+                  }
+                  athletesMap[plate].m1Place = ath.m1Place || ath.place;
+                  athletesMap[plate].m2Place = ath.m2Place;
+                  athletesMap[plate].m3Place = ath.m3Place;
+                  athletesMap[plate].mpts = ath.points;
+                });
+              }
+
+              // 2. Process Quartas
+              if (quartasSub) {
+                quartasSub.data.athletes.forEach(ath => {
+                  const plate = ath.plate;
+                  if (!athletesMap[plate]) {
+                    athletesMap[plate] = {
+                      plate,
+                      firstName: ath.firstName,
+                      lastName: ath.lastName,
+                      fullName: ath.fullName,
+                      club: ath.club,
+                      state: ath.state,
+                      uciId: ath.uciId,
+                      sponsor: ath.sponsor,
+                    };
+                  }
+                  athletesMap[plate].quartasPlace = ath.place;
+                  athletesMap[plate].quartasGroup = ath.group;
+                });
+              }
+
+              // 3. Process Semi
+              if (semiSub) {
+                semiSub.data.athletes.forEach(ath => {
+                  const plate = ath.plate;
+                  if (!athletesMap[plate]) {
+                    athletesMap[plate] = {
+                      plate,
+                      firstName: ath.firstName,
+                      lastName: ath.lastName,
+                      fullName: ath.fullName,
+                      club: ath.club,
+                      state: ath.state,
+                      uciId: ath.uciId,
+                      sponsor: ath.sponsor,
+                    };
+                  }
+                  athletesMap[plate].semiPlace = ath.place;
+                  athletesMap[plate].semiGroup = ath.group;
+                });
+              }
+
+              // 4. Process Final
+              if (finalSub) {
+                finalSub.data.athletes.forEach(ath => {
+                  const plate = ath.plate;
+                  if (!athletesMap[plate]) {
+                    athletesMap[plate] = {
+                      plate,
+                      firstName: ath.firstName,
+                      lastName: ath.lastName,
+                      fullName: ath.fullName,
+                      club: ath.club,
+                      state: ath.state,
+                      uciId: ath.uciId,
+                      sponsor: ath.sponsor,
+                    };
+                  }
+                  athletesMap[plate].finalPlace = ath.place;
+                  athletesMap[plate].finalGroup = ath.group;
+                });
+              }
+
+              // Fallback if empty
+              if (Object.keys(athletesMap).length === 0) {
+                group.subCategories.forEach(sub => {
+                  sub.data.athletes.forEach(ath => {
+                    const plate = ath.plate;
+                    if (!athletesMap[plate]) {
+                      athletesMap[plate] = {
+                        plate,
+                        firstName: ath.firstName,
+                        lastName: ath.lastName,
+                        fullName: ath.fullName,
+                        club: ath.club,
+                        state: ath.state,
+                        uciId: ath.uciId,
+                        sponsor: ath.sponsor,
+                        m1Place: ath.m1Place || ath.place,
+                        m2Place: ath.m2Place,
+                        m3Place: ath.m3Place,
+                        mpts: ath.points,
+                      };
+                    }
+                  });
+                });
+              }
+
+              const list = Object.values(athletesMap);
+
+              list.forEach((ath: any) => {
+                let score = 9999;
+                const fPlace = getNumericPlace(ath.finalPlace);
+                const sPlace = getNumericPlace(ath.semiPlace);
+                const qPlace = getNumericPlace(ath.quartasPlace);
+                const mptsVal = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 999;
+
+                if (fPlace !== null) {
+                  score = fPlace;
+                } else if (sPlace !== null) {
+                  score = 10 + sPlace;
+                } else if (qPlace !== null) {
+                  score = 30 + qPlace;
+                } else {
+                  score = 100 + mptsVal;
+                }
+                ath.overallRankScore = score;
+              });
+
+              list.sort((a: any, b: any) => {
+                if (a.overallRankScore !== b.overallRankScore) {
+                  return a.overallRankScore - b.overallRankScore;
+                }
+                return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
+              });
+
+              return list;
+            })();
 
             return (
               <div
@@ -808,12 +950,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         {group.baseName}
                       </h3>
                       <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-bold">
-                        {group.subCategories.reduce((sum, s) => sum + s.data.entriesCount, 0)} Pilotos Inscritos
+                        {combinedAthletes.length} Pilotos Inscritos
                       </span>
                     </div>
                     {group.subCategories.length > 1 && (
                       <p className="text-[10px] text-slate-500 leading-normal font-medium">
-                        Esta categoria possui {grupoSubs.length} {grupoSubs.length === 1 ? 'grupo ou fase' : 'grupos ou fases'} de classificação{generalSubs.length > 0 ? ` e ${generalSubs.length} ${generalSubs.length === 1 ? 'classificação geral' : 'classificações gerais'}` : ''}. Use os botões abaixo para filtrar.
+                        Esta categoria possui {group.subCategories.length} fases ou grupos de classificação carregados. Use as abas abaixo para filtrar as visualizações.
                       </p>
                     )}
                   </div>
@@ -828,66 +970,239 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   </div>
                 </div>
 
-                {/* Subcategory Tab Selector if there's more than one subcategory */}
+                {/* Subcategory Tab Selector */}
                 {group.subCategories.length > 1 && (
                   <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 bg-slate-50/30 border-b border-slate-100">
-                    {/* All Phases Button */}
                     <button
-                      onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'ALL' }))}
+                      onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'TODAS' }))}
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1 border ${
-                        activeSub === 'ALL'
+                        isAllMode
                           ? 'bg-slate-900 text-white border-slate-950 shadow-sm'
                           : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'
                       }`}
                     >
                       <Layers size={12} />
-                      Ver Todas as Fases ({grupoSubs.length})
+                      Todas as Fases
                     </button>
 
-                    {/* Divider if we have groups */}
-                    {grupoSubs.length > 0 && <span className="h-4 w-[1px] bg-slate-200 mx-1"></span>}
-
-                    {/* Groups Buttons */}
-                    {grupoSubs.map((sub) => (
+                    {hasMotos && (
                       <button
-                        key={sub.fullName}
-                        onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: sub.fullName }))}
+                        onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'MOTOS' }))}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1 border ${
-                          activeSub === sub.fullName
+                          activeSub === 'MOTOS'
                             ? 'bg-emerald-850 text-white border-emerald-900 shadow-sm'
                             : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'
                         }`}
                       >
                         <Users size={12} />
-                        {sub.subName}
+                        Motos
                       </button>
-                    ))}
+                    )}
 
-                    {/* Divider if we have general results */}
-                    {generalSubs.length > 0 && <span className="h-4 w-[1px] bg-slate-200 mx-1"></span>}
-
-                    {/* General Results Buttons */}
-                    {generalSubs.map((sub) => (
+                    {hasQuartas && (
                       <button
-                        key={sub.fullName}
-                        onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: sub.fullName }))}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1.5 border ${
-                          activeSub === sub.fullName
-                            ? 'bg-amber-600 text-white border-amber-700 shadow-sm'
-                            : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border-amber-200'
+                        onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'QUARTAS' }))}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1 border ${
+                          activeSub === 'QUARTAS'
+                            ? 'bg-emerald-850 text-white border-emerald-900 shadow-sm'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'
                         }`}
                       >
-                        <Trophy size={12} className={activeSub === sub.fullName ? 'text-white' : 'text-amber-600'} />
-                        Resultados Geral ({sub.subName})
+                        <Zap size={12} />
+                        Quartas
                       </button>
-                    ))}
+                    )}
+
+                    {hasSemi && (
+                      <button
+                        onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'SEMI' }))}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1 border ${
+                          activeSub === 'SEMI'
+                            ? 'bg-emerald-850 text-white border-emerald-900 shadow-sm'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'
+                        }`}
+                      >
+                        <Award size={12} />
+                        Semi
+                      </button>
+                    )}
+
+                    {hasFinal && (
+                      <button
+                        onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'FINAL' }))}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1 border ${
+                          activeSub === 'FINAL'
+                            ? 'bg-amber-600 text-white border-amber-700 shadow-sm'
+                            : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'
+                        }`}
+                      >
+                        <Trophy size={12} className={activeSub === 'FINAL' ? 'text-white' : 'text-amber-600'} />
+                        Final
+                      </button>
+                    )}
                   </div>
                 )}
-
                 {/* Render tables for selected subgroups */}
                 <div className="divide-y divide-slate-100">
-                  {subsToRender.map((sub) => {
-                    const cat = sub.data;
+                  {isAllMode ? (
+                    // Unified Standing across all phases (Todas as Fases)
+                    <div className="p-4 sm:p-5 space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 border border-slate-200/60 p-3 sm:p-4 rounded-xl">
+                        <div>
+                          <h4 className="font-extrabold text-slate-800 text-xs sm:text-sm flex items-center gap-1.5 uppercase tracking-wider">
+                            <Layers size={14} className="text-emerald-600 shrink-0" />
+                            Classificação Geral Combinada (Todas as Fases)
+                          </h4>
+                          <p className="text-[10px] text-slate-500 mt-1 font-medium leading-normal">
+                            Resultados consolidados de todas as fases da categoria (Motos, Quartas, Semis, Finais) ordenados pela fase mais avançada atingida pelo piloto.
+                          </p>
+                        </div>
+                        <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-full uppercase shrink-0 text-center tracking-wider">
+                          Consolidado
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto scrollbar-thin rounded-xl border border-slate-150 shadow-xxs bg-white">
+                        <table className="w-full text-left border-collapse text-xxs sm:text-xs">
+                          <thead>
+                            <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-150 text-center">
+                              <th className="p-2 sm:p-3 w-10 sm:w-16 text-[10px] sm:text-xs text-center">Pos</th>
+                              <th className="p-2 sm:p-3 w-12 sm:w-16 text-center text-[10px] sm:text-xs">Placa</th>
+                              <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs">Piloto</th>
+                              <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs hidden md:table-cell">Clube / Associação</th>
+                              <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Motos (M1/M2/M3)</th>
+                              <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800 font-black bg-emerald-50/10">M-PTS</th>
+                              {hasQuartas && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Quartas</th>}
+                              {hasSemi && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Semi</th>}
+                              {hasFinal && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-amber-700 font-black">Final</th>}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {combinedAthletes.map((ath, idx) => {
+                              const rankInt = idx + 1;
+                              const isFirst = rankInt === 1;
+                              const isSecond = rankInt === 2;
+                              const isThird = rankInt === 3;
+
+                              return (
+                                <tr key={ath.plate} className="hover:bg-slate-50/50 transition-colors">
+                                  {/* Rank */}
+                                  <td className="p-2 sm:p-3 text-center font-bold">
+                                    {isFirst ? (
+                                      <div className="flex items-center justify-center gap-0.5">
+                                        <Trophy size={14} className="text-yellow-500 fill-yellow-400 shrink-0" />
+                                        <span className="text-yellow-600 font-black text-xs">1º</span>
+                                      </div>
+                                    ) : isSecond ? (
+                                      <div className="flex items-center justify-center gap-0.5">
+                                        <Trophy size={14} className="text-slate-400 fill-slate-300 shrink-0" />
+                                        <span className="text-slate-600 font-black text-xs">2º</span>
+                                      </div>
+                                    ) : isThird ? (
+                                      <div className="flex items-center justify-center gap-0.5">
+                                        <Trophy size={14} className="text-amber-600 fill-amber-500 shrink-0" />
+                                        <span className="text-amber-700 font-black text-xs">3º</span>
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-400 font-mono font-bold">{rankInt}º</span>
+                                    )}
+                                  </td>
+
+                                  {/* Plate */}
+                                  <td className="p-2 sm:p-3 text-center">
+                                    <span className="inline-block px-1.5 sm:px-2.5 py-0.5 rounded bg-yellow-400 border border-yellow-500 text-slate-950 font-mono font-extrabold text-[10px] sm:text-[11px] shadow-xxs">
+                                      {ath.plate}
+                                    </span>
+                                  </td>
+
+                                  {/* Name */}
+                                  <td className="p-2 sm:p-3">
+                                    <div className="font-extrabold text-slate-900 flex flex-wrap items-center gap-1">
+                                      <span>{ath.firstName} {ath.lastName}</span>
+                                      {ath.uciId && (
+                                        <span className="hidden sm:inline text-[9px] text-slate-400 font-mono font-normal">
+                                          UCI: {ath.uciId}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 font-mono mt-0.5 md:hidden flex flex-wrap items-center gap-1 leading-tight">
+                                      <span>{ath.club || 'Independente'}</span>
+                                      <span className="text-slate-300">•</span>
+                                      <span className="font-bold text-slate-600">UF: {ath.state || 'BRA'}</span>
+                                    </div>
+                                  </td>
+
+                                  {/* Club / Association */}
+                                  <td className="p-2 sm:p-3 text-slate-600 hidden md:table-cell">
+                                    <div className="font-semibold text-[11px] truncate max-w-[180px]">{ath.club || 'Independente'}</div>
+                                    <div className="text-[10px] text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                                      <MapPin size={10} className="text-slate-400 shrink-0" />
+                                      <span>UF: {ath.state || 'BRA'}</span>
+                                    </div>
+                                  </td>
+
+                                  {/* Motos (M1/M2/M3) */}
+                                  <td className="p-2 sm:p-3 text-center font-semibold font-mono text-slate-700">
+                                    {ath.m1Place || ath.m2Place || ath.m3Place ? (
+                                      `${ath.m1Place || '-'} / ${ath.m2Place || '-'} / ${ath.m3Place || '-'}`
+                                    ) : (
+                                      <span className="text-slate-300">-</span>
+                                    )}
+                                  </td>
+
+                                  {/* M-PTS */}
+                                  <td className="p-2 sm:p-3 text-center font-black text-emerald-700 bg-emerald-50/20 text-xs">
+                                    {ath.mpts !== undefined && ath.mpts !== null ? ath.mpts : '-'}
+                                  </td>
+
+                                  {/* Quartas */}
+                                  {hasQuartas && (
+                                    <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
+                                      {ath.quartasPlace ? (
+                                        <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
+                                          {ath.quartasPlace}º
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-300">-</span>
+                                      )}
+                                    </td>
+                                  )}
+
+                                  {/* Semi */}
+                                  {hasSemi && (
+                                    <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
+                                      {ath.semiPlace ? (
+                                        <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
+                                          {ath.semiPlace}º
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-300">-</span>
+                                      )}
+                                    </td>
+                                  )}
+
+                                  {/* Final */}
+                                  {hasFinal && (
+                                    <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
+                                      {ath.finalPlace ? (
+                                        <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-xs font-black">
+                                          {ath.finalPlace}º
+                                        </span>
+                                      ) : (
+                                        <span className="text-slate-300">-</span>
+                                      )}
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    subsToRender.map((sub) => {
+                      const cat = sub.data;
                     
                     // Filter athletes by Search query inside Results
                     const filteredAthletesInCat = cat.athletes.filter((ath) => {
@@ -1542,7 +1857,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                       </div>
                     );
-                  })}
+                  })
+                  )}
                 </div>
 
               </div>
