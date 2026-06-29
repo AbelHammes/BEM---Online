@@ -972,15 +972,14 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                 const sPts = sNumPlace !== null ? sNumPlace : 0;
                 const fPts = fNumPlace !== null ? fNumPlace : 0;
 
-                const m1Num = getNumericPlace(ath.m1Place);
-                const m2Num = getNumericPlace(ath.m2Place);
-                const m3Num = getNumericPlace(ath.m3Place);
-
                 let mPts = 0;
-                if (m1Num !== null || m2Num !== null || m3Num !== null) {
-                  mPts = (m1Num ?? 0) + (m2Num ?? 0) + (m3Num ?? 0);
+                if (ath.mpts !== undefined && ath.mpts !== null) {
+                  mPts = Number(ath.mpts);
                 } else {
-                  mPts = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 0;
+                  const m1Num = getNumericPlace(ath.m1Place);
+                  const m2Num = getNumericPlace(ath.m2Place);
+                  const m3Num = getNumericPlace(ath.m3Place);
+                  mPts = (m1Num ?? 0) + (m2Num ?? 0) + (m3Num ?? 0);
                 }
 
                 ath.totalPoints = mPts + qPts + sPts + fPts;
@@ -1538,32 +1537,17 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                       );
                     });
 
-                    // For the Final subcategory under battery results or drawings, show ONLY the pilots who passed to the final phase
-                    const isFinal = isFinalResultsSub(sub.subName);
-                    if (isFinal && (resultsMode === 'motos' || resultsMode === 'draws')) {
-                      // Collect finalist plates
-                      const finalistPlates = new Set<string>();
-                      if (finalSub) {
-                        finalSub.data.athletes.forEach(a => {
-                          if (a.plate) finalistPlates.add(a.plate);
-                        });
-                      }
-                      if (semiSub) {
-                        semiSub.data.athletes.forEach(a => {
-                          const p = getNumericPlace(a.place);
-                          const isTransfer = a.transfer && (a.transfer.toLowerCase().includes('final') || a.transfer.toLowerCase().includes('f'));
-                          if (isTransfer || (p !== null && p <= 4)) {
-                            if (a.plate) finalistPlates.add(a.plate);
-                          }
-                        });
-                      }
-                      
-                      if (finalistPlates.size > 0) {
-                        filteredAthletesInCat = filteredAthletesInCat.filter(ath => finalistPlates.has(ath.plate));
-                      } else {
-                        // Fallback: only keep athletes who have a place or run
-                        filteredAthletesInCat = filteredAthletesInCat.filter(ath => ath.place && ath.place.trim() !== "");
-                      }
+                    // Filter out athletes who did not participate/advance to this single-run phase (Quartas, Semis, Finals)
+                    const isSingleRun = isSingleRunPhase(sub.subName);
+                    if (isSingleRun && (resultsMode === 'motos' || resultsMode === 'draws')) {
+                      filteredAthletesInCat = filteredAthletesInCat.filter((ath) => {
+                        const hasGroup = ath.group && ath.group.trim() !== "";
+                        const hasPlace = ath.place && ath.place.trim() !== "";
+                        const hasTransfer = ath.transfer && ath.transfer.trim() !== "";
+                        const hasDraw = ath.m1Draw && ath.m1Draw.trim() !== "";
+                        const hasTime = ath.m1Time && ath.m1Time.trim() !== "";
+                        return !!(hasGroup || hasPlace || hasTransfer || hasDraw || hasTime);
+                      });
                     }
 
                     // Group athletes by their athlete.group (if present)
