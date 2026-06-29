@@ -143,7 +143,7 @@ export default function PilotProfile({
                 {cName}
               </span>
             </div>
-            <p className="text-xxs text-gray-500 font-mono mt-0.5">UCI ID: {p?.uciId || 'Ativo no BEM'}</p>
+            <p className="text-xxs text-gray-500 font-mono mt-0.5">CBC ID: {p?.uciId || 'Ativo no BEM'}</p>
           </div>
         </div>
         

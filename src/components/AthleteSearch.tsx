@@ -193,7 +193,7 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Pesquisar por Nome, Placa ou UCI ID..."
+            placeholder="Pesquisar por Nome, Placa ou CBC ID..."
             className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:ring-1 focus:ring-emerald-500 transition-all outline-none"
           />
         </div>
@@ -301,7 +301,7 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
                     <strong>UF:</strong> {athlete.state} / {athlete.country}
                   </span>
-                  <span><strong>UCI ID:</strong> {athlete.uciId || 'Não Informado'}</span>
+                  <span><strong>CBC ID:</strong> {athlete.uciId || 'Não Informado'}</span>
                 </div>
                 {showTransponders && athlete.transponder && (
                   <div className="flex items-center gap-1 bg-amber-50 text-amber-800 border border-amber-100 rounded px-1.5 py-0.5 mt-1 w-max max-w-full truncate font-medium">

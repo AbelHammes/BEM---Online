@@ -19,7 +19,7 @@ export const BEM_MOCK_FILES = {
           "Sponsor": ""
         },
         "Headers": ["Ref","Plate","Club","State","Country","First Name","Last Name","UCI ID","Merged From","Sponsor"],
-        "Display Headers": ["REF","PLACA","CLUBE","ESTADO","PAÍS","Nome","Nome de Familia","ID da UCI","mesclado de","Patrocinador"],
+        "Display Headers": ["REF","PLACA","CLUBE","ESTADO","PAÍS","Nome","Nome de Familia","ID da CBC","mesclado de","Patrocinador"],
         "Data": [
           ["","303","MOCVA (Venâncio Aires)","RS","BRA","Joaquim","ALVES","5985829081","",""],
           ["","96","Clube 19 (Sapiranga)","RS","BRA","Marvin","BAUM","5757853069","",""],
@@ -50,7 +50,7 @@ export const BEM_MOCK_FILES = {
           "Sponsor": ""
         },
         "Headers": ["Plate","Club","State","Country","First Name","Last Name","UCI ID","Merged From","Sponsor","M1","M2","M3"],
-        "Display Headers": ["PLACA","CLUBE","ESTADO","PAÍS","Nome","Nome de Familia","ID da UCI","mesclado de","Patrocinador","M1","M2","M3"],
+        "Display Headers": ["PLACA","CLUBE","ESTADO","PAÍS","Nome","Nome de Familia","ID da CBC","mesclado de","Patrocinador","M1","M2","M3"],
         "Data": [
           ["5","M4 Racing","RS","BRA","Bernardo","FARIAS","33763810112","","","10: 2","26: 7","42: 4"],
           ["303","MOCVA (Venâncio Aires)","RS","BRA","Joaquim","ALVES","5985829081","","","10: 3","26: 5","42: 6"],
@@ -81,7 +81,7 @@ export const BEM_MOCK_FILES = {
           "Sponsor": ""
         },
         "Headers": ["Plate","Club","State","Country","First Name","Last Name","UCI ID","Merged From","Sponsor","Rank","Points","M1 Place","M1 Lap Time","M1 Start Reaction","M2 Place","M2 Lap Time","M2 Start Reaction","M3 Place","M3 Lap Time","M3 Start Reaction","Transfer"],
-        "Display Headers": ["PLACA","CLUBE","ESTADO","PAÍS","Nome","Nome de Familia","ID da UCI","mesclado de","Patrocinador","RANK ","pontos","M1 Lugar","M1 Tempo de volta","M1 Iniciar reação","M2 Lugar","M2 Tempo de volta","M2 Iniciar reação","M3 Lugar","M3 Tempo de volta","M3 Iniciar reação","TRANSFERIR"],
+        "Display Headers": ["PLACA","CLUBE","ESTADO","PAÍS","Nome","Nome de Familia","ID da CBC","mesclado de","Patrocinador","RANK ","pontos","M1 Lugar","M1 Tempo de volta","M1 Iniciar reação","M2 Lugar","M2 Tempo de volta","M2 Iniciar reação","M3 Lugar","M3 Tempo de volta","M3 Iniciar reação","TRANSFERIR"],
         "Data": [
           ["303","MOCVA (Venâncio Aires)","RS","BRA","Joaquim","ALVES","5985829081","","","1, 10","3","1st","34.120","0.180","1st","34.050","0.190","1st","34.200","0.185"," "],
           ["124","LCBMX (Campo Bom)","RS","BRA","Heitor","PREUSS WINCK","5916471092","","","2, 10","8","4th","36.450","0.210","2nd","35.110","0.203","2nd","35.320","0.195"," "],
@@ -112,7 +112,7 @@ export const BEM_MOCK_FILES = {
           "Sponsor": ""
         },
         "Headers": ["Plate","Club","State","Country","First Name","Last Name","UCI ID","Merged From","Sponsor","Place","M-PTS","M 1 Place","M 1 Lap Time","M 1 Start Reaction","M 2 Place","M 2 Lap Time","M 2 Start Reaction","M 3 Place","M 3 Lap Time","M 3 Start Reaction"],
-        "Display Headers": ["PLACA","CLUBE","ESTADO","PAÍS","Nome","Nome de Familia","ID da UCI","mesclado de","Patrocinador","Lugar","M-PTS","M 1 Place","M 1 Lap Time","M 1 Start Reaction","M 2 Place","M 2 Lap Time","M 2 Start Reaction","M 3 Place","M 3 Lap Time","M 3 Start Reaction"],
+        "Display Headers": ["PLACA","CLUBE","ESTADO","PAÍS","Nome","Nome de Familia","ID da CBC","mesclado de","Patrocinador","Lugar","M-PTS","M 1 Place","M 1 Lap Time","M 1 Start Reaction","M 2 Place","M 2 Lap Time","M 2 Start Reaction","M 3 Place","M 3 Lap Time","M 3 Start Reaction"],
         "Data": [
           ["303","MOCVA (Venâncio Aires)","RS","BRA","Joaquim","ALVES","5985829081","","","1","3","1st","34.120","0.180","1st","34.050","0.190","1st","34.200","0.185"],
           ["124","LCBMX (Campo Bom)","RS","BRA","Heitor","PREUSS WINCK","5916471092","","","2","8","4th","36.450","0.210","2nd","35.110","0.203","2nd","35.320","0.195"],

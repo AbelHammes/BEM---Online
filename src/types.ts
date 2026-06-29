@@ -30,6 +30,7 @@ export interface Athlete {
   fullFinal?: string;
   fullSemi?: string;
   fullQuartas?: string;
+  sourceFile?: string;
 }
 
 export interface CategoryData {

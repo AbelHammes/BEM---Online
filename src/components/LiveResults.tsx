@@ -109,6 +109,24 @@ const isSingleRunPhase = (subName: string): boolean => {
   );
 };
 
+// Helper to verify if an athlete belongs to the respective single-run phase BEM file
+const isAthleteFromSourcePhase = (ath: Athlete, subName: string): boolean => {
+  if (!ath.sourceFile) return true; // fallback if no source file info is available
+  const fileLower = ath.sourceFile.toLowerCase();
+  const phaseLower = subName.toLowerCase();
+  
+  if (phaseLower.includes('quarta') || phaseLower.includes('1/4') || phaseLower.includes('quarter')) {
+    return fileLower.includes('quarta') || fileLower.includes('quarter') || fileLower.includes('1/4');
+  }
+  if (phaseLower.includes('semi') || phaseLower.includes('1/2')) {
+    return fileLower.includes('semi') || fileLower.includes('1/2');
+  }
+  if (phaseLower.includes('final') && !phaseLower.includes('semi') && !phaseLower.includes('quarta') && !phaseLower.includes('1/4') && !phaseLower.includes('quarter')) {
+    return fileLower.includes('final') && !fileLower.includes('semi') && !fileLower.includes('quarter') && !fileLower.includes('quarta') && !fileLower.includes('1/4');
+  }
+  return true;
+};
+
 // Helper to determine if a subcategory has a subsequent phase in the event
 const hasNextPhase = (currentSub: any, allSubs: any[]): boolean => {
   if (!currentSub || !allSubs || allSubs.length <= 1) return false;
@@ -1264,7 +1282,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         <span>{ath.firstName} {ath.lastName}</span>
                                         {ath.uciId && (
                                           <span className="hidden sm:inline text-[9px] text-slate-400 font-mono font-normal">
-                                            UCI: {ath.uciId}
+                                            CBC: {ath.uciId}
                                           </span>
                                         )}
                                       </div>
@@ -1328,7 +1346,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     </h4>
                                     <div className="flex flex-col text-[10px] text-slate-500 font-semibold mt-1">
                                       <span className="truncate">{ath.club || 'Avulso'}</span>
-                                      <span className="font-mono text-slate-400 font-normal mt-0.5">UF: {ath.state || 'BRA'} | UCI: {ath.uciId || 'N/A'}</span>
+                                      <span className="font-mono text-slate-400 font-normal mt-0.5">UF: {ath.state || 'BRA'} | CBC: {ath.uciId || 'N/A'}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -1422,7 +1440,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         <span>{ath.firstName} {ath.lastName}</span>
                                         {ath.uciId && (
                                           <span className="hidden sm:inline text-[9px] text-slate-400 font-mono font-normal">
-                                            UCI: {ath.uciId}
+                                            CBC: {ath.uciId}
                                           </span>
                                         )}
                                       </div>
@@ -1638,6 +1656,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                     const isSingleRun = isSingleRunPhase(sub.subName);
                     if (isSingleRun && (resultsMode === 'motos' || resultsMode === 'draws')) {
                       filteredAthletesInCat = filteredAthletesInCat.filter((ath) => {
+                        if (!isAthleteFromSourcePhase(ath, sub.subName)) return false;
                         const hasGroup = ath.group && ath.group.trim() !== "";
                         const hasPlace = ath.place && ath.place.trim() !== "";
                         const hasTransfer = ath.transfer && ath.transfer.trim() !== "";
@@ -1921,7 +1940,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                 <span>{ath.firstName} {ath.lastName}</span>
                                                 {ath.uciId && (
                                                   <span className="hidden sm:inline text-[9px] text-slate-400 font-mono font-normal">
-                                                    UCI: {ath.uciId}
+                                                    CBC: {ath.uciId}
                                                   </span>
                                                 )}
                                               </div>
