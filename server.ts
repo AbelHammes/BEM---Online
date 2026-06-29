@@ -197,6 +197,7 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
   const reportCreated = jsonContent.ReportCreated || new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   const reportType = jsonContent.ReportType || "RELATORIO";
   const reportTypeUpper = reportType.toUpperCase();
+  const isFullResults = reportTypeUpper === "FULL RESULTS" || reportTypeUpper === "RESULTADOS COMPLETOS";
   const isDrawReport = reportTypeUpper.includes("MOTO DRAWS") || 
                        reportTypeUpper.includes("SORTEIOS") || 
                        reportTypeUpper.includes("SORTEIO") || 
@@ -223,7 +224,9 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
     let categoryName = normalizeCategoryName(headerInfo.Category || "");
     if (!categoryName) continue;
     const transferText = headerInfo.Transfer || "";
-    if (transferText && transferText.trim() !== "") {
+    if (isFullResults) {
+      categoryName = `${categoryName} - Classificação Geral`;
+    } else if (transferText && transferText.trim() !== "") {
       categoryName = `${categoryName} - ${transferText.trim()}`;
     } else {
       if (!tableCountsPerCategory[categoryName]) {
@@ -295,7 +298,8 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
     // Parse Athletes
     const athletesList: any[] = [];
 
-    for (const row of rows) {
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      const row = rows[rowIndex];
       const plate = plateIdx !== -1 ? row[plateIdx]?.trim() : "";
       if (!plate) continue;
 
@@ -318,7 +322,7 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
         uciId: uciIdx !== -1 ? row[uciIdx]?.trim() : "",
         sponsor: sponsorIdx !== -1 ? row[sponsorIdx]?.trim() : "",
         transponder: transponderIdx !== -1 ? row[transponderIdx]?.trim() : "",
-        place: (!isDrawReport && placeIdx !== -1) ? row[placeIdx]?.trim() : "",
+        place: isFullResults ? (rowIndex + 1).toString() : ((!isDrawReport && placeIdx !== -1) ? row[placeIdx]?.trim() : ""),
         points: mptsIdx !== -1 ? parseInt(row[mptsIdx], 10) || undefined : undefined,
         sourceFile: filename
       };
@@ -467,6 +471,9 @@ function parseMotoCellHtml(html: string) {
 }
 
 function parseBEMHtml(htmlContent: string, currentState: any, filename: string) {
+  const htmlUpper = htmlContent.toUpperCase();
+  const isFullResults = htmlUpper.includes("RESULTADOS COMPLETOS") || htmlUpper.includes("FULL RESULTS") || filename.toLowerCase().includes("full") || filename.toLowerCase().includes("completo");
+
   // Simple regex parser for captions and table rows
   const categories: any[] = [];
   const captionRegex = /<caption[^>]*>([^<]+)<\/caption>/gi;
@@ -504,7 +511,9 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
 
     if (!categoryName) continue;
 
-    if (phaseText && phaseText.trim() !== "") {
+    if (isFullResults) {
+      categoryName = `${categoryName} - Classificação Geral`;
+    } else if (phaseText && phaseText.trim() !== "") {
       categoryName = `${categoryName} - ${phaseText.trim()}`;
     } else {
       if (!tableCountsPerCategory[categoryName]) {
@@ -624,7 +633,8 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
     }
 
     const athletesList: any[] = [];
-    for (const r of rows) {
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      const r = rows[rowIndex];
       const plate = plateIdx !== -1 ? stripHtmlTags(r[plateIdx]) : "";
       if (!plate) continue;
 
@@ -679,7 +689,7 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
         country: "BRA",
         uciId: uciIdx !== -1 ? stripHtmlTags(r[uciIdx]) : "",
         transponder: transponderIdx !== -1 ? stripHtmlTags(r[transponderIdx]) : "",
-        place: isDraw ? "" : rawPlace,
+        place: isFullResults ? (rowIndex + 1).toString() : (isDraw ? "" : rawPlace),
         group: group,
         points: pointsIdx !== -1 ? parseInt(stripHtmlTags(r[pointsIdx]), 10) || undefined : undefined,
         transfer: transferIdx !== -1 ? stripHtmlTags(r[transferIdx]) : "",

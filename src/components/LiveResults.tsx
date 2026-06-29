@@ -806,10 +806,10 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
               if (!hasQuartas && !hasSemi && !hasFinal) {
                 subsToRender = motosSub ? [motosSub] : [];
               } else {
-                subsToRender = group.subCategories.filter(sub => !isFinalResultsSub(sub.subName));
+                subsToRender = group.subCategories.filter(sub => !isFinalResultsSub(sub.subName) && sub.subName !== "Classificação Geral");
               }
             } else if (resultsMode === 'motos' && isAllMode) {
-              subsToRender = group.subCategories;
+              subsToRender = group.subCategories.filter(sub => sub.subName !== "Classificação Geral");
             } else if (!isAllMode) {
               if (activeSub === 'MOTOS' && motosSub) {
                 subsToRender = [motosSub];
@@ -820,8 +820,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
               } else if (activeSub === 'FINAL' && finalSub) {
                 subsToRender = [finalSub];
               } else {
-                const matched = group.subCategories.find(sub => sub.fullName === activeSub);
-                subsToRender = matched ? [matched] : (motosSub ? [motosSub] : group.subCategories.slice(0, 1));
+                const matched = group.subCategories.find(sub => sub.fullName === activeSub && sub.subName !== "Classificação Geral");
+                subsToRender = matched ? [matched] : (motosSub ? [motosSub] : group.subCategories.filter(sub => sub.subName !== "Classificação Geral").slice(0, 1));
               }
             }
 
@@ -943,54 +943,117 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                 });
               }
 
-              const list = Object.values(athletesMap);
+              let list = Object.values(athletesMap);
 
-              list.forEach((ath: any) => {
-                let score = 9999;
-                const fPlace = getNumericPlace(ath.finalPlace);
-                const sPlace = getNumericPlace(ath.semiPlace);
-                const qPlace = getNumericPlace(ath.quartasPlace);
-                const mptsVal = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 999;
+              const overallSub = group.subCategories.find(sub => 
+                sub.subName === "Classificação Geral"
+              );
 
-                if (fPlace !== null) {
-                  score = fPlace;
-                } else if (sPlace !== null) {
-                  score = 10 + sPlace;
-                } else if (qPlace !== null) {
-                  score = 30 + qPlace;
-                } else {
-                  score = 100 + mptsVal;
-                }
-                ath.overallRankScore = score;
+              if (overallSub) {
+                // If we have overall sub, let's sort the list to match the exact order of overallSub.data.athletes
+                const orderedPlates = overallSub.data.athletes.map(a => a.plate);
+                
+                // Let's copy properties from overallSub to athletesMap
+                overallSub.data.athletes.forEach(ath => {
+                  const plate = ath.plate;
+                  if (athletesMap[plate]) {
+                    // Update points / mpts / totalPoints
+                    athletesMap[plate].totalPoints = ath.points;
+                    athletesMap[plate].mpts = ath.points;
+                    if (ath.place) {
+                      athletesMap[plate].finalPlace = ath.place;
+                    }
+                  } else {
+                    // If not present in map, add it
+                    athletesMap[plate] = {
+                      plate,
+                      firstName: ath.firstName,
+                      lastName: ath.lastName,
+                      fullName: ath.fullName,
+                      club: ath.club,
+                      state: ath.state,
+                      uciId: ath.uciId,
+                      sponsor: ath.sponsor,
+                      totalPoints: ath.points,
+                      mpts: ath.points,
+                    };
+                  }
+                });
 
-                // Sum points of all phases for total classification points
-                const qNumPlace = getNumericPlace(ath.quartasPlace);
-                const sNumPlace = getNumericPlace(ath.semiPlace);
-                const fNumPlace = getNumericPlace(ath.finalPlace);
+                // Now construct list from athletesMap ordered by orderedPlates
+                const orderedList: any[] = [];
+                orderedPlates.forEach(plate => {
+                  if (athletesMap[plate]) {
+                    orderedList.push(athletesMap[plate]);
+                  }
+                });
+                
+                // Append any extra athletes not in overallSub (just in case)
+                list.forEach(ath => {
+                  if (!orderedPlates.includes(ath.plate)) {
+                    orderedList.push(ath);
+                  }
+                });
 
-                const qPts = qNumPlace !== null ? qNumPlace : 0;
-                const sPts = sNumPlace !== null ? sNumPlace : 0;
-                const fPts = fNumPlace !== null ? fNumPlace : 0;
+                list = orderedList;
+                
+                // Let's set overallRankScore to preserve this exact order
+                list.forEach((ath: any, idx: number) => {
+                  ath.overallRankScore = idx + 1;
+                  // Set totalPoints to mpts (or points)
+                  if (ath.totalPoints === undefined || ath.totalPoints === null) {
+                    ath.totalPoints = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 0;
+                  }
+                });
+              } else {
+                // Original fallback logic
+                list.forEach((ath: any) => {
+                  let score = 9999;
+                  const fPlace = getNumericPlace(ath.finalPlace);
+                  const sPlace = getNumericPlace(ath.semiPlace);
+                  const qPlace = getNumericPlace(ath.quartasPlace);
+                  const mptsVal = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 999;
 
-                let mPts = 0;
-                if (ath.mpts !== undefined && ath.mpts !== null) {
-                  mPts = Number(ath.mpts);
-                } else {
-                  const m1Num = getNumericPlace(ath.m1Place);
-                  const m2Num = getNumericPlace(ath.m2Place);
-                  const m3Num = getNumericPlace(ath.m3Place);
-                  mPts = (m1Num ?? 0) + (m2Num ?? 0) + (m3Num ?? 0);
-                }
+                  if (fPlace !== null) {
+                    score = fPlace;
+                  } else if (sPlace !== null) {
+                    score = 10 + sPlace;
+                  } else if (qPlace !== null) {
+                    score = 30 + qPlace;
+                  } else {
+                    score = 100 + mptsVal;
+                  }
+                  ath.overallRankScore = score;
 
-                ath.totalPoints = mPts + qPts + sPts + fPts;
-              });
+                  // Sum points of all phases for total classification points
+                  const qNumPlace = getNumericPlace(ath.quartasPlace);
+                  const sNumPlace = getNumericPlace(ath.semiPlace);
+                  const fNumPlace = getNumericPlace(ath.finalPlace);
 
-              list.sort((a: any, b: any) => {
-                if (a.overallRankScore !== b.overallRankScore) {
-                  return a.overallRankScore - b.overallRankScore;
-                }
-                return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
-              });
+                  const qPts = qNumPlace !== null ? qNumPlace : 0;
+                  const sPts = sNumPlace !== null ? sNumPlace : 0;
+                  const fPts = fNumPlace !== null ? fNumPlace : 0;
+
+                  let mPts = 0;
+                  if (ath.mpts !== undefined && ath.mpts !== null) {
+                    mPts = Number(ath.mpts);
+                  } else {
+                    const m1Num = getNumericPlace(ath.m1Place);
+                    const m2Num = getNumericPlace(ath.m2Place);
+                    const m3Num = getNumericPlace(ath.m3Place);
+                    mPts = (m1Num ?? 0) + (m2Num ?? 0) + (m3Num ?? 0);
+                  }
+
+                  ath.totalPoints = mPts + qPts + sPts + fPts;
+                });
+
+                list.sort((a: any, b: any) => {
+                  if (a.overallRankScore !== b.overallRankScore) {
+                    return a.overallRankScore - b.overallRankScore;
+                  }
+                  return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
+                });
+              }
 
               return list;
             })();
