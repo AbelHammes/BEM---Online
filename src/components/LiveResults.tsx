@@ -968,10 +968,21 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                 const sNumPlace = getNumericPlace(ath.semiPlace);
                 const fNumPlace = getNumericPlace(ath.finalPlace);
 
-                const qPts = ath.quartasPoints !== undefined && ath.quartasPoints !== null ? Number(ath.quartasPoints) : (qNumPlace !== null ? qNumPlace : 0);
-                const sPts = ath.semiPoints !== undefined && ath.semiPoints !== null ? Number(ath.semiPoints) : (sNumPlace !== null ? sNumPlace : 0);
-                const fPts = ath.finalPoints !== undefined && ath.finalPoints !== null ? Number(ath.finalPoints) : (fNumPlace !== null ? fNumPlace : 0);
-                const mPts = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 0;
+                const qPts = qNumPlace !== null ? qNumPlace : 0;
+                const sPts = sNumPlace !== null ? sNumPlace : 0;
+                const fPts = fNumPlace !== null ? fNumPlace : 0;
+
+                const m1Num = getNumericPlace(ath.m1Place);
+                const m2Num = getNumericPlace(ath.m2Place);
+                const m3Num = getNumericPlace(ath.m3Place);
+
+                let mPts = 0;
+                if (m1Num !== null || m2Num !== null || m3Num !== null) {
+                  mPts = (m1Num ?? 0) + (m2Num ?? 0) + (m3Num ?? 0);
+                } else {
+                  mPts = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 0;
+                }
+
                 ath.totalPoints = mPts + qPts + sPts + fPts;
               });
 
@@ -1625,6 +1636,42 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                             const isFinal = isFinalResultsSub(sub.subName);
 
+                            // Lookup full athletes history from combinedAthletes
+                            const fullA = combinedAthletes.find((ca: any) => ca.plate === a.plate) || a;
+                            const fullB = combinedAthletes.find((ca: any) => ca.plate === b.plate) || b;
+
+                            if (resultsMode === 'draws' && isSingleRunPhase(sub.subName)) {
+                              const subLower = sub.subName.toLowerCase();
+                              if (subLower.includes('final') && !subLower.includes('semi') && !subLower.includes('quarta')) {
+                                // Final: sort by semiPlace, then quartasPlace, then mpts
+                                const sA = getNumericPlace(fullA.semiPlace) ?? 9999;
+                                const sB = getNumericPlace(fullB.semiPlace) ?? 9999;
+                                if (sA !== sB) return sA - sB;
+                                
+                                const qA = getNumericPlace(fullA.quartasPlace) ?? 9999;
+                                const qB = getNumericPlace(fullB.quartasPlace) ?? 9999;
+                                if (qA !== qB) return qA - qB;
+                                
+                                const mA = fullA.mpts !== undefined && fullA.mpts !== null ? Number(fullA.mpts) : 9999;
+                                const mB = fullB.mpts !== undefined && fullB.mpts !== null ? Number(fullB.mpts) : 9999;
+                                if (mA !== mB) return mA - mB;
+                              } else if (subLower.includes('semi')) {
+                                // Semi: sort by quartasPlace, then mpts
+                                const qA = getNumericPlace(fullA.quartasPlace) ?? 9999;
+                                const qB = getNumericPlace(fullB.quartasPlace) ?? 9999;
+                                if (qA !== qB) return qA - qB;
+                                
+                                const mA = fullA.mpts !== undefined && fullA.mpts !== null ? Number(fullA.mpts) : 9999;
+                                const mB = fullB.mpts !== undefined && fullB.mpts !== null ? Number(fullB.mpts) : 9999;
+                                if (mA !== mB) return mA - mB;
+                              } else if (subLower.includes('quarta')) {
+                                // Quartas: sort by mpts
+                                const mA = fullA.mpts !== undefined && fullA.mpts !== null ? Number(fullA.mpts) : 9999;
+                                const mB = fullB.mpts !== undefined && fullB.mpts !== null ? Number(fullB.mpts) : 9999;
+                                if (mA !== mB) return mA - mB;
+                              }
+                            }
+
                             const pA = getNumericPlace(a.place);
                             const pB = getNumericPlace(b.place);
                             const scoreA = pA === null ? 9999 : pA;
@@ -1702,7 +1749,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                           isSingleRunPhase(sub.subName) ? (
                                             resultsMode === 'draws' ? null : (
                                               <>
-                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">Sorteio / Gate</th>
+
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800">Tempo de Volta</th>
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">Reação</th>
                                             </>
@@ -1809,7 +1856,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                 <span className="font-bold text-slate-600">UF: {ath.state || 'BRA'}</span>
                                               </div>
                                               {/* Mobile Classification Badge */}
-                                              {ath.transfer && (
+                                              {ath.transfer && hasNextPhase(sub, group.subCategories) && (
                                                 <div className="mt-1 md:hidden">
                                                   <span 
                                                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded font-bold font-mono text-[9px]"
@@ -1844,7 +1891,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                 resultsMode === 'draws' ? null : (
                                                   <>
                                                   {/* Sorteio / Gate */}
-                                                  <td className="p-1 sm:p-3 text-center border-l border-slate-50">
+                                                  <td className="hidden">
                                                     {ath.m1Draw ? (
                                                       (() => {
                                                         const p = parseDrawText(ath.m1Draw);
@@ -2162,8 +2209,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             {resultsMode !== 'entries' && resultsMode !== 'overall' && (
                                               isSingleRunPhase(sub.subName) ? (
                                                 <>
-                                                  {/* Sorteio / Gate card bubble */}
-                                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
+                                                  {/* Sorteio / Gate card bubble custom marker */}
+                                                  <div className="hidden bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
                                                     <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Gate</div>
                                                     {ath.m1Draw ? (
                                                       (() => {

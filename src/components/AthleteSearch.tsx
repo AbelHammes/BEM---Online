@@ -6,12 +6,81 @@ interface AthleteSearchProps {
   event: EventData;
 }
 
+// Helper to extract base category name without the phase suffix
+const getBaseCategoryName = (fullName: string): string => {
+  let cleanFullName = fullName.trim().replace(/\s+/g, " ");
+
+  // Handle Moto: or Moto: 
+  cleanFullName = cleanFullName.replace(/Moto:\s*/gi, " - ");
+
+  // Handle colons
+  cleanFullName = cleanFullName.replace(/:\s*/g, " - ");
+
+  // Clean space around hyphens
+  cleanFullName = cleanFullName.replace(/\s*-\s*/g, " - ");
+
+  const parts = cleanFullName.split(" - ");
+  
+  const isPhaseSuffix = (str: string): boolean => {
+    const lower = str.toLowerCase();
+    return (
+      lower.includes('grupo') ||
+      lower.includes('resultado') ||
+      lower.includes('ponto') ||
+      lower.includes('classifica') ||
+      lower.includes('geral') ||
+      lower.includes('final') ||
+      lower.includes('overall') ||
+      lower.includes('standing') ||
+      lower.includes('sorteio') ||
+      lower.includes('fase') ||
+      lower.includes('bateria') ||
+      lower.includes('moto') ||
+      lower.includes('semi') ||
+      lower.includes('quarta') ||
+      lower.includes('oitava')
+    );
+  };
+
+  if (parts.length === 1) {
+    return cleanFullName;
+  }
+  
+  if (parts.length === 2) {
+    if (isPhaseSuffix(parts[1])) {
+      return parts[0].trim();
+    } else {
+      return cleanFullName;
+    }
+  }
+  
+  const lastPart = parts[parts.length - 1];
+  if (isPhaseSuffix(lastPart)) {
+    return parts.slice(0, -1).join(" - ").trim();
+  } else {
+    return cleanFullName;
+  }
+};
+
 export default function AthleteSearch({ event }: AthleteSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedClub, setSelectedClub] = useState('ALL');
   const [selectedState, setSelectedState] = useState('ALL');
   const [showTransponders, setShowTransponders] = useState(true);
+
+  // Compile unique base category names
+  const uniqueCategories = useMemo(() => {
+    const categories = new Set<string>();
+    if (event && event.categories) {
+      event.categories.forEach(c => {
+        if (c && c.categoryName) {
+          categories.add(getBaseCategoryName(c.categoryName));
+        }
+      });
+    }
+    return Array.from(categories).sort();
+  }, [event]);
 
   // Compile unique lists of Clubs and States for filtration dropdowns
   const { allClubs, allStates } = useMemo(() => {
@@ -38,19 +107,23 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
   // Combined Searching/Filtering logic
   const filteredAthletes = useMemo(() => {
     const results: Array<{ athlete: Athlete; categoryName: string }> = [];
+    const seenPlates = new Set<string>();
 
     if (!event || !event.categories) return results;
 
     event.categories.forEach(cat => {
       if (!cat || !cat.athletes) return;
       
+      const baseCatName = getBaseCategoryName(cat.categoryName);
       // Filter by category selection first
-      if (selectedCategory !== 'ALL' && cat.categoryName !== selectedCategory) {
+      if (selectedCategory !== 'ALL' && baseCatName !== selectedCategory) {
         return;
       }
 
       cat.athletes.forEach(ath => {
         if (!ath) return;
+        const plate = ath.plate ? ath.plate.toString().trim() : '';
+        if (!plate) return;
 
         // Filter by Club
         if (selectedClub !== 'ALL' && ath.club !== selectedClub) {
@@ -64,7 +137,7 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
 
         // Search text criteria
         const searchLower = (searchTerm || '').toLowerCase();
-        const matchesPlate = (ath.plate || '').toLowerCase().includes(searchLower);
+        const matchesPlate = plate.toLowerCase().includes(searchLower);
         const matchesName = (ath.fullName || '').toLowerCase().includes(searchLower) || 
                             `${ath.firstName || ''} ${ath.lastName || ''}`.toLowerCase().includes(searchLower);
         const matchesClub = (ath.club || '').toLowerCase().includes(searchLower);
@@ -72,10 +145,13 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
         const matchesTransponder = (ath.transponder || '').toLowerCase().includes(searchLower);
 
         if (!searchTerm || matchesPlate || matchesName || matchesClub || matchesUci || matchesTransponder) {
-          results.push({
-            athlete: ath,
-            categoryName: cat.categoryName
-          });
+          if (!seenPlates.has(plate)) {
+            seenPlates.add(plate);
+            results.push({
+              athlete: ath,
+              categoryName: baseCatName
+            });
+          }
         }
       });
     });
@@ -129,8 +205,8 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
             className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:ring-1 focus:ring-emerald-500 transition-all outline-none"
           >
             <option value="ALL">Todas as Categorias</option>
-            {event.categories.map((c) => (
-              <option key={c.categoryName} value={c.categoryName}>{c.categoryName}</option>
+            {uniqueCategories.map((catName) => (
+              <option key={catName} value={catName}>{catName}</option>
             ))}
           </select>
         </div>
