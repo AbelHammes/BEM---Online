@@ -127,6 +127,120 @@ const isAthleteFromSourcePhase = (ath: Athlete, subName: string): boolean => {
   return true;
 };
 
+// Helper to retrieve the correct athletes list for each single-run phase in Draws mode
+const getAthletesForDraws = (
+  sub: any,
+  motosSub?: any,
+  quartasSub?: any,
+  semiSub?: any,
+  finalSub?: any
+): Athlete[] => {
+  if (!sub || !sub.data || !sub.data.athletes) return [];
+  const subNameLower = sub.subName.toLowerCase();
+  const isQuartas = subNameLower.includes('quarta') || subNameLower.includes('1/4') || subNameLower.includes('quarter');
+  const isSemi = subNameLower.includes('semi') || subNameLower.includes('1/2');
+  const isFinal = subNameLower.includes('final') && !subNameLower.includes('semi') && !subNameLower.includes('quarta') && !subNameLower.includes('1/4') && !subNameLower.includes('quarter');
+
+  if (isQuartas) {
+    // Rule 1: Para as categorias que no arquivo Moto Results constar na coluna TRANSFERIR a letra Q, 
+    // os atletas com a letra preenchida na coluna transferir, devem ser apresentados em ordem na fase Quartas de Final da categoria.
+    if (motosSub && motosSub.data && motosSub.data.athletes) {
+      const qAthletes = motosSub.data.athletes.filter((ath: Athlete) => ath.transfer && ath.transfer.trim().toLowerCase().includes('q'));
+      if (qAthletes.length > 0) {
+        // Return these athletes. Let's merge drawing/sorteio info from quartasSub if quartasSub exists
+        return qAthletes.map((motoAth: Athlete) => {
+          const qMatch = quartasSub?.data.athletes.find((a: Athlete) => a.plate === motoAth.plate);
+          return {
+            ...motoAth,
+            m1Draw: qMatch?.m1Draw || motoAth.m1Draw,
+            group: qMatch?.group || (qMatch?.m1Draw ? parseDrawText(qMatch.m1Draw)?.heat : undefined) || motoAth.group,
+            place: qMatch?.place || motoAth.place,
+          };
+        });
+      }
+    }
+  }
+
+  if (isSemi) {
+    // Rule 4: Para as categorias que tem o arquivo de Stage Quarter Final, deve ser considerado os pilotos 
+    // que tem a letra S na coluna TRANSFERIR deste arquivo para montar os pilotos que devem aparecer no sorteio de raias da fase Semifinal.
+    if (quartasSub && quartasSub.data && quartasSub.data.athletes) {
+      const sAthletesFromQuartas = quartasSub.data.athletes.filter((ath: Athlete) => ath.transfer && ath.transfer.trim().toLowerCase().includes('s'));
+      if (sAthletesFromQuartas.length > 0) {
+        // Return these athletes. Merge drawing/sorteio info from semiSub if semiSub exists
+        return sAthletesFromQuartas.map((qAth: Athlete) => {
+          const sMatch = semiSub?.data.athletes.find((a: Athlete) => a.plate === qAth.plate);
+          return {
+            ...qAth,
+            m1Draw: sMatch?.m1Draw || qAth.m1Draw,
+            group: sMatch?.group || (sMatch?.m1Draw ? parseDrawText(sMatch.m1Draw)?.heat : undefined) || qAth.group,
+            place: sMatch?.place || qAth.place,
+          };
+        });
+      }
+    }
+
+    // Rule 2: Para as categorias que no arquivo Moto Results constar na coluna TRANSFERIR a letra S, 
+    // os atletas com a letra preenchida na coluna transferir, devem ser apresentados em ordem na fase Semifinal da categoria.
+    if (motosSub && motosSub.data && motosSub.data.athletes) {
+      const sAthletes = motosSub.data.athletes.filter((ath: Athlete) => ath.transfer && ath.transfer.trim().toLowerCase().includes('s'));
+      if (sAthletes.length > 0) {
+        // Return these athletes. Merge drawing/sorteio info from semiSub if semiSub exists
+        return sAthletes.map((motoAth: Athlete) => {
+          const sMatch = semiSub?.data.athletes.find((a: Athlete) => a.plate === motoAth.plate);
+          return {
+            ...motoAth,
+            m1Draw: sMatch?.m1Draw || motoAth.m1Draw,
+            group: sMatch?.group || (sMatch?.m1Draw ? parseDrawText(sMatch.m1Draw)?.heat : undefined) || motoAth.group,
+            place: sMatch?.place || motoAth.place,
+          };
+        });
+      }
+    }
+  }
+
+  if (isFinal) {
+    // Rule 5: Para as categorias que tem o arquivo de Stage Semi Final, deve ser considerado os pilotos 
+    // que tem a letra F na coluna TRANSFERIR deste arquivo para montar os pilotos que devem aparecer no sorteio de raias da fase Final.
+    if (semiSub && semiSub.data && semiSub.data.athletes) {
+      const fAthletesFromSemis = semiSub.data.athletes.filter((ath: Athlete) => ath.transfer && ath.transfer.trim().toLowerCase().includes('f'));
+      if (fAthletesFromSemis.length > 0) {
+        // Return these athletes. Merge drawing/sorteio info from finalSub if finalSub exists
+        return fAthletesFromSemis.map((sAth: Athlete) => {
+          const fMatch = finalSub?.data.athletes.find((a: Athlete) => a.plate === sAth.plate);
+          return {
+            ...sAth,
+            m1Draw: fMatch?.m1Draw || sAth.m1Draw,
+            group: fMatch?.group || (fMatch?.m1Draw ? parseDrawText(fMatch.m1Draw)?.heat : undefined) || sAth.group,
+            place: fMatch?.place || sAth.place,
+          };
+        });
+      }
+    }
+
+    // Rule 3: Para as categorias que no arquivo Moto Results constar na coluna TRANSFERIR a letra F, 
+    // os atletas com a letra preenchida na coluna transferir, devem ser apresentados em ordem na fase Final da categoria.
+    if (motosSub && motosSub.data && motosSub.data.athletes) {
+      const fAthletes = motosSub.data.athletes.filter((ath: Athlete) => ath.transfer && ath.transfer.trim().toLowerCase().includes('f'));
+      if (fAthletes.length > 0) {
+        // Return these athletes. Merge drawing/sorteio info from finalSub if finalSub exists
+        return fAthletes.map((motoAth: Athlete) => {
+          const fMatch = finalSub?.data.athletes.find((a: Athlete) => a.plate === motoAth.plate);
+          return {
+            ...motoAth,
+            m1Draw: fMatch?.m1Draw || motoAth.m1Draw,
+            group: fMatch?.group || (fMatch?.m1Draw ? parseDrawText(fMatch.m1Draw)?.heat : undefined) || motoAth.group,
+            place: fMatch?.place || motoAth.place,
+          };
+        });
+      }
+    }
+  }
+
+  // Fallback to the sub's own athletes list
+  return sub.data.athletes;
+};
+
 // Helper to determine if a subcategory has a subsequent phase in the event
 const hasNextPhase = (currentSub: any, allSubs: any[]): boolean => {
   if (!currentSub || !allSubs || allSubs.length <= 1) return false;
@@ -1640,8 +1754,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                     subsToRender.map((sub) => {
                       const cat = sub.data;
                     
+                    let sourceAthletes = cat.athletes;
+                    if (resultsMode === 'draws') {
+                      sourceAthletes = getAthletesForDraws(sub, motosSub, quartasSub, semiSub, finalSub);
+                    }
+
                     // Filter athletes by Search query inside Results
-                    let filteredAthletesInCat = cat.athletes.filter((ath) => {
+                    let filteredAthletesInCat = sourceAthletes.filter((ath) => {
                       if (!searchQuery) return true;
                       const q = searchQuery.toLowerCase();
                       return (
@@ -1654,7 +1773,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                     // Filter out athletes who did not participate/advance to this single-run phase (Quartas, Semis, Finals)
                     const isSingleRun = isSingleRunPhase(sub.subName);
-                    if (isSingleRun && (resultsMode === 'motos' || resultsMode === 'draws')) {
+                    if (isSingleRun && resultsMode === 'motos') {
                       filteredAthletesInCat = filteredAthletesInCat.filter((ath) => {
                         if (!isAthleteFromSourcePhase(ath, sub.subName)) return false;
                         const hasGroup = ath.group && ath.group.trim() !== "";
@@ -1741,28 +1860,29 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                             const fullB = combinedAthletes.find((ca: any) => ca.plate === b.plate) || b;
 
                             if (resultsMode === 'draws' && isSingleRunPhase(sub.subName)) {
-                              const subLower = sub.subName.toLowerCase();
-                              if (subLower.includes('final') && !subLower.includes('semi') && !subLower.includes('quarta') && !subLower.includes('oitava')) {
-                                // Final: preserve the exact order parsed from Stage Final file
-                                const idxA = cat.athletes.findIndex(x => x.plate === a.plate);
-                                const idxB = cat.athletes.findIndex(x => x.plate === b.plate);
-                                if (idxA !== -1 && idxB !== -1) {
-                                  return idxA - idxB;
+                              // First, let's see if they have draw/gate selection values (e.g., "Q5 : 1")
+                              const drawA = parseDrawText(a.m1Draw);
+                              const drawB = parseDrawText(b.m1Draw);
+                              
+                              if (drawA && drawB && drawA.heat === drawB.heat) {
+                                // If they are in the same heat/group, sort them by their lane choice order
+                                const valA = parseInt(drawA.lane, 10) || 9999;
+                                const valB = parseInt(drawB.lane, 10) || 9999;
+                                if (valA !== valB) {
+                                  return valA - valB;
                                 }
-                              } else if (subLower.includes('semi')) {
-                                // Semi: sort by quartasPlace, then mpts
-                                const qA = getNumericPlace(fullA.quartasPlace) ?? 9999;
-                                const qB = getNumericPlace(fullB.quartasPlace) ?? 9999;
-                                if (qA !== qB) return qA - qB;
-                                
-                                const mA = fullA.mpts !== undefined && fullA.mpts !== null ? Number(fullA.mpts) : 9999;
-                                const mB = fullB.mpts !== undefined && fullB.mpts !== null ? Number(fullB.mpts) : 9999;
-                                if (mA !== mB) return mA - mB;
-                              } else if (subLower.includes('quarta')) {
-                                // Quartas: sort by mpts
-                                const mA = fullA.mpts !== undefined && fullA.mpts !== null ? Number(fullA.mpts) : 9999;
-                                const mB = fullB.mpts !== undefined && fullB.mpts !== null ? Number(fullB.mpts) : 9999;
-                                if (mA !== mB) return mA - mB;
+                              } else if (drawA && drawB) {
+                                // Sort by heat/bateria name (e.g. Q5, Q6)
+                                if (drawA.heat !== drawB.heat) {
+                                  return drawA.heat.localeCompare(drawB.heat, undefined, { numeric: true });
+                                }
+                              }
+
+                              // Fallback: preserve their order in the source list!
+                              const idxA = groupAthletes.findIndex(x => x.plate === a.plate);
+                              const idxB = groupAthletes.findIndex(x => x.plate === b.plate);
+                              if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
+                                return idxA - idxB;
                               }
                             }
 
@@ -1841,7 +1961,9 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         {/* Runs Headers */}
                                         {resultsMode !== 'entries' && resultsMode !== 'overall' && (
                                           isSingleRunPhase(sub.subName) ? (
-                                            resultsMode === 'draws' ? null : (
+                                            resultsMode === 'draws' ? (
+                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs w-28">Sorteio / Gate</th>
+                                            ) : (
                                               <>
 
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800">Tempo de Volta</th>
@@ -1982,7 +2104,27 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             {/* Runs (Motos/Draws) */}
                                             {resultsMode !== 'entries' && resultsMode !== 'overall' && (
                                               isSingleRunPhase(sub.subName) ? (
-                                                resultsMode === 'draws' ? null : (
+                                                resultsMode === 'draws' ? (
+                                                  <td className="p-1 sm:p-3 text-center border-l border-slate-50">
+                                                    {ath.m1Draw ? (
+                                                      (() => {
+                                                        const p = parseDrawText(ath.m1Draw);
+                                                        return p ? (
+                                                          <div className="text-xxs flex flex-col items-center justify-center gap-1.5">
+                                                            <div className="font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5 inline-block font-mono">
+                                                              {p.heat}
+                                                            </div>
+                                                            {p.lane && (
+                                                              <div className="font-extrabold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 inline-block font-mono">
+                                                                Escolha: {p.lane}
+                                                              </div>
+                                                            )}
+                                                          </div>
+                                                        ) : <span className="font-mono text-slate-500 font-bold text-[10px] sm:text-xs">{ath.m1Draw}</span>;
+                                                      })()
+                                                    ) : <span className="text-slate-300">-</span>}
+                                                  </td>
+                                                ) : (
                                                   <>
                                                   {/* Sorteio / Gate */}
                                                   <td className="hidden">
@@ -2287,8 +2429,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         </div>
 
                                         {/* Card Bottom: M-PTS & Runs Details */}
-                                        {!(resultsMode === 'draws' && isSingleRunPhase(sub.subName)) && (
-                                          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 pl-1.5 bg-slate-50/50 p-2 rounded-xl">
+                                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 pl-1.5 bg-slate-50/50 p-2 rounded-xl">
                                           
                                           {resultsMode === 'overall' && (
                                             <div className="shrink-0 text-center">
@@ -2303,37 +2444,40 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             {resultsMode !== 'entries' && resultsMode !== 'overall' && (
                                               isSingleRunPhase(sub.subName) ? (
                                                 <>
-                                                  {/* Sorteio / Gate card bubble custom marker */}
-                                                  <div className="hidden bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
-                                                    <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Gate</div>
-                                                    {ath.m1Draw ? (
-                                                      (() => {
-                                                        const p = parseDrawText(ath.m1Draw);
-                                                        return p ? (
-                                                          <div className="font-mono mt-0.5 text-[9px] font-bold leading-tight">
-                                                            <div className="text-blue-600">B:{p.heat}</div>
-                                                            <div className="text-yellow-600">R:{p.lane}</div>
-                                                          </div>
-                                                        ) : <div className="font-mono text-slate-500 mt-0.5 font-bold text-[9px]">{ath.m1Draw}</div>;
-                                                      })()
-                                                    ) : <span className="text-slate-300">-</span>}
-                                                  </div>
-
-                                                  {/* Tempo card bubble */}
-                                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
-                                                    <div className="text-[8px] text-emerald-800 font-bold uppercase tracking-wider">Tempo</div>
-                                                    <div className="mt-0.5 font-mono text-[9px] font-bold text-emerald-600">
-                                                      {isValidTime(ath.m1Time) ? `${ath.m1Time}s` : (ath.m1Time || '-')}
+                                                  {resultsMode === 'draws' ? (
+                                                    <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[120px]">
+                                                      <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Gate</div>
+                                                      {ath.m1Draw ? (
+                                                        (() => {
+                                                          const p = parseDrawText(ath.m1Draw);
+                                                          return p ? (
+                                                            <div className="font-mono mt-0.5 text-[9px] font-bold leading-tight space-y-0.5">
+                                                              <div className="text-blue-600 font-black">{p.heat}</div>
+                                                              {p.lane && <div className="text-amber-600 font-bold">Escolha: {p.lane}</div>}
+                                                            </div>
+                                                          ) : <div className="font-mono text-slate-500 mt-0.5 font-bold text-[9px]">{ath.m1Draw}</div>;
+                                                        })()
+                                                      ) : <span className="text-slate-300">-</span>}
                                                     </div>
-                                                  </div>
+                                                  ) : (
+                                                    <>
+                                                      {/* Tempo card bubble */}
+                                                      <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
+                                                        <div className="text-[8px] text-emerald-800 font-bold uppercase tracking-wider">Tempo</div>
+                                                        <div className="mt-0.5 font-mono text-[9px] font-bold text-emerald-600">
+                                                          {isValidTime(ath.m1Time) ? `${ath.m1Time}s` : (ath.m1Time || '-')}
+                                                        </div>
+                                                      </div>
 
-                                                  {/* Reação card bubble */}
-                                                  <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
-                                                    <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Reação</div>
-                                                    <div className="mt-0.5 font-mono text-[9px] text-slate-500">
-                                                      {isValidTime(ath.m1Reaction) ? `${ath.m1Reaction}s` : (ath.m1Reaction || '-')}
-                                                    </div>
-                                                  </div>
+                                                      {/* Reação card bubble */}
+                                                      <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
+                                                        <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Reação</div>
+                                                        <div className="mt-0.5 font-mono text-[9px] text-slate-500">
+                                                          {isValidTime(ath.m1Reaction) ? `${ath.m1Reaction}s` : (ath.m1Reaction || '-')}
+                                                        </div>
+                                                      </div>
+                                                    </>
+                                                  )}
                                                 </>
                                               ) : (
                                                 <>
@@ -2411,8 +2555,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                                           </div>
                                         </div>
-                                      )}
-                                    </div>
+                                      </div>
                                     );
                                   })}
                                 </div>
