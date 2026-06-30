@@ -62,6 +62,45 @@ function isSingleRunPhaseName(categoryName: string): boolean {
   );
 }
 
+// Helper to normalize the phase name / transfer text for category merging.
+// If it's a moto-draw or entries phase, we normalize it to "" (empty) so it merges into the main "Motos" category in the database.
+function getNormalizedPhaseText(phase: string): string {
+  if (!phase) return "";
+  const lower = phase.trim().toLowerCase();
+  
+  if (
+    lower.includes("final") ||
+    lower.includes("semi") ||
+    lower.includes("quarta") ||
+    lower.includes("quarter") ||
+    lower.includes("1/2") ||
+    lower.includes("1/4") ||
+    lower.includes("oitava") ||
+    lower.includes("1/8")
+  ) {
+    return phase;
+  }
+  
+  if (
+    lower.includes("draw") ||
+    lower.includes("sorteio") ||
+    lower.includes("gate") ||
+    lower.includes("raia") ||
+    lower.includes("largada") ||
+    lower.includes("inscrito") ||
+    lower.includes("entry") ||
+    lower.includes("entries") ||
+    lower.includes("piloto") ||
+    lower.includes("moto") ||
+    lower.includes("bateria") ||
+    lower.includes("grupo")
+  ) {
+    return "";
+  }
+  
+  return phase;
+}
+
 // Propagates and syncs athlete details (such as draws, points, places, times) across different subcategories/phases of the same base category
 function propagateAthleteData(currentState: any) {
   if (!currentState || !currentState.event || !currentState.event.categories) {
@@ -224,10 +263,11 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
     let categoryName = normalizeCategoryName(headerInfo.Category || "");
     if (!categoryName) continue;
     const transferText = headerInfo.Transfer || "";
+    const normPhase = getNormalizedPhaseText(transferText);
     if (isFullResults) {
       categoryName = `${categoryName} - Classificação Geral`;
-    } else if (transferText && transferText.trim() !== "") {
-      categoryName = `${categoryName} - ${transferText.trim()}`;
+    } else if (normPhase && normPhase.trim() !== "") {
+      categoryName = `${categoryName} - ${normPhase.trim()}`;
     } else {
       if (!tableCountsPerCategory[categoryName]) {
         tableCountsPerCategory[categoryName] = 1;
@@ -569,10 +609,11 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
 
     if (!categoryName) continue;
 
+    const normPhase = phaseText ? getNormalizedPhaseText(phaseText) : "";
     if (isFullResults) {
       categoryName = `${categoryName} - Classificação Geral`;
-    } else if (phaseText && phaseText.trim() !== "") {
-      categoryName = `${categoryName} - ${phaseText.trim()}`;
+    } else if (normPhase && normPhase.trim() !== "") {
+      categoryName = `${categoryName} - ${normPhase.trim()}`;
     } else {
       if (!tableCountsPerCategory[categoryName]) {
         tableCountsPerCategory[categoryName] = 1;
