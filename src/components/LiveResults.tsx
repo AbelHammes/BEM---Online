@@ -284,19 +284,40 @@ const getAthletesForDraws = (
 };
 
 // Helper to determine if a subcategory has a subsequent phase in the event
-const hasNextPhase = (currentSub: any, allSubs: any[]): boolean => {
-  if (!currentSub || !allSubs || allSubs.length <= 1) return false;
+const hasNextPhase = (currentSub: any, allSubs?: any[]): boolean => {
+  if (!currentSub) return false;
   
-  if (isFinalResultsSub(currentSub.subName) || currentSub.subName.toLowerCase().includes('final')) {
+  const subNameLower = currentSub.subName.toLowerCase();
+  
+  // If it's the actual final results or final phase, there's no next phase.
+  if (isActualFinalPhase(currentSub.subName) || isFinalResultsSub(currentSub.subName)) {
     return false;
   }
   
-  const idx = allSubs.findIndex(s => s.subName === currentSub.subName);
-  if (idx === -1 || idx === allSubs.length - 1) {
-    return false;
+  // Explicitly identify known phases that ALWAYS have a next phase (transfer)
+  if (
+    subNameLower.includes('quarta') ||
+    subNameLower.includes('quarter') ||
+    subNameLower.includes('1/4') ||
+    subNameLower.includes('semi') ||
+    subNameLower.includes('1/2') ||
+    subNameLower.includes('oitava') ||
+    subNameLower.includes('1/8') ||
+    subNameLower.includes('moto') ||
+    subNameLower.includes('grupo')
+  ) {
+    return true;
   }
   
-  return true;
+  // Fallback to searching the list of all subcategories in this category group
+  if (allSubs && allSubs.length > 1) {
+    const idx = allSubs.findIndex((s: any) => s.subName === currentSub.subName);
+    if (idx !== -1 && idx < allSubs.length - 1) {
+      return true;
+    }
+  }
+  
+  return false;
 };
 
 // Helper to serialize subcategory athletes to check for duplicate content
