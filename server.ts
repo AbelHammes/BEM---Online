@@ -322,6 +322,9 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
     // Parse Athletes
     const athletesList: any[] = [];
 
+    const hasResultsCols = placeIdx !== -1 || mptsIdx !== -1 || m1TimeIdx !== -1 || rankIdx !== -1;
+    const isLocalDrawReport = isDrawReport && !hasResultsCols;
+
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       const row = rows[rowIndex];
       const plate = plateIdx !== -1 ? row[plateIdx]?.trim() : "";
@@ -346,7 +349,7 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
         uciId: uciIdx !== -1 ? row[uciIdx]?.trim() : "",
         sponsor: sponsorIdx !== -1 ? row[sponsorIdx]?.trim() : "",
         transponder: transponderIdx !== -1 ? row[transponderIdx]?.trim() : "",
-        place: isFullResults ? (rowIndex + 1).toString() : ((!isDrawReport && placeIdx !== -1) ? row[placeIdx]?.trim() : ""),
+        place: isFullResults ? (rowIndex + 1).toString() : ((!isLocalDrawReport && placeIdx !== -1) ? row[placeIdx]?.trim() : ""),
         points: mptsIdx !== -1 ? parseInt(row[mptsIdx], 10) || undefined : undefined,
         sourceFile: filename
       };
@@ -359,12 +362,37 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
 
       const drawVal = drawIdx !== -1 ? row[drawIdx]?.trim() : "";
       if (drawVal) {
-        athlete.m1Draw = drawVal;
+        const rtLower = reportType.toLowerCase();
+        const fnLower = filename.toLowerCase();
+        const tTextLower = transferText.toLowerCase();
+
+        const isFinalPhase = tTextLower.includes("final") && !tTextLower.includes("semi") && !tTextLower.includes("quarta") && !tTextLower.includes("quarter") && !tTextLower.includes("1/4");
+        const isSemiPhase = tTextLower.includes("semi") || tTextLower.includes("1/2");
+        const isQuartasPhase = tTextLower.includes("quarta") || tTextLower.includes("quarter") || tTextLower.includes("1/4");
+
+        const isFinalFile = rtLower.includes("final") && !rtLower.includes("semi") && !rtLower.includes("quarta") && !rtLower.includes("quarter") && !rtLower.includes("1/4") ||
+                            fnLower.includes("final") && !fnLower.includes("semi") && !fnLower.includes("quarta") && !fnLower.includes("quarter") && !fnLower.includes("1/4");
+        const isSemiFile = rtLower.includes("semi") || rtLower.includes("1/2") || fnLower.includes("semi") || fnLower.includes("1/2");
+        const isQuartasFile = rtLower.includes("quarta") || rtLower.includes("quarter") || rtLower.includes("1/4") || fnLower.includes("quarta") || fnLower.includes("quarter") || fnLower.includes("1/4");
+
+        const isFinal = isFinalPhase || isFinalFile;
+        const isSemi = isSemiPhase || isSemiFile;
+        const isQuartas = isQuartasPhase || isQuartasFile;
+
+        if (isFinal) {
+          athlete.finalDraw = drawVal;
+        } else if (isSemi) {
+          athlete.semiDraw = drawVal;
+        } else if (isQuartas) {
+          athlete.quartasDraw = drawVal;
+        } else {
+          athlete.m1Draw = drawVal;
+        }
       }
 
       // Add Draws & Results
 
-      if (isDrawReport) {
+      if (isLocalDrawReport) {
         const cleanDrawValue = (val: string): string => {
           if (!val) return "";
           return val.replace(/^(bateria|raia|heat|lane|b\.|r\.|b:|r:)\s*/i, "").trim();
@@ -716,7 +744,9 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
       }
 
       const htmlUpper = htmlContent.toUpperCase();
-      const isDraw = htmlUpper.includes("BATERIA) SORTEIOS") || 
+      const hasResultsCols = placeIdx !== -1 || pointsIdx !== -1 || m1TimeIdx !== -1;
+      const isDraw = !hasResultsCols && (
+                     htmlUpper.includes("BATERIA) SORTEIOS") || 
                      htmlUpper.includes("SORTEIO") || 
                      htmlUpper.includes("DRAWS") || 
                      htmlUpper.includes("SORTEIOS") ||
@@ -731,7 +761,8 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
                      htmlUpper.includes("INSCRITOS") ||
                      htmlUpper.includes("ENTRY") ||
                      htmlUpper.includes("ENTRIES") ||
-                     htmlUpper.includes("PILOTOS");
+                     htmlUpper.includes("PILOTOS")
+      );
 
       const athlete: any = {
         plate,
@@ -758,7 +789,30 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
 
       const drawVal = htmlDrawIdx !== -1 && r[htmlDrawIdx] ? stripHtmlTags(r[htmlDrawIdx]).trim() : "";
       if (drawVal) {
-        athlete.m1Draw = drawVal;
+        const fnLower = filename.toLowerCase();
+        const pTextLower = phaseText.toLowerCase();
+
+        const isFinalPhase = pTextLower.includes("final") && !pTextLower.includes("semi") && !pTextLower.includes("quarta") && !pTextLower.includes("quarter") && !pTextLower.includes("1/4");
+        const isSemiPhase = pTextLower.includes("semi") || pTextLower.includes("1/2");
+        const isQuartasPhase = pTextLower.includes("quarta") || pTextLower.includes("quarter") || pTextLower.includes("1/4");
+
+        const isFinalFile = fnLower.includes("final") && !fnLower.includes("semi") && !fnLower.includes("quarta") && !fnLower.includes("quarter") && !fnLower.includes("1/4");
+        const isSemiFile = fnLower.includes("semi") || fnLower.includes("1/2");
+        const isQuartasFile = fnLower.includes("quarta") || fnLower.includes("quarter") || fnLower.includes("1/4");
+
+        const isFinal = isFinalPhase || isFinalFile;
+        const isSemi = isSemiPhase || isSemiFile;
+        const isQuartas = isQuartasPhase || isQuartasFile;
+
+        if (isFinal) {
+          athlete.finalDraw = drawVal;
+        } else if (isSemi) {
+          athlete.semiDraw = drawVal;
+        } else if (isQuartas) {
+          athlete.quartasDraw = drawVal;
+        } else {
+          athlete.m1Draw = drawVal;
+        }
       }
 
       if (isDraw) {

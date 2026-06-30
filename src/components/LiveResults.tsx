@@ -150,10 +150,11 @@ const getAthletesForDraws = (
         // Return these athletes. Let's merge drawing/sorteio info from quartasSub if quartasSub exists
         return qAthletes.map((motoAth: Athlete) => {
           const qMatch = quartasSub?.data.athletes.find((a: Athlete) => a.plate === motoAth.plate);
+          const draw = qMatch?.quartasDraw || qMatch?.m1Draw || motoAth.quartasDraw || motoAth.m1Draw;
           return {
             ...motoAth,
-            m1Draw: qMatch?.m1Draw || motoAth.m1Draw,
-            group: qMatch?.group || (qMatch?.m1Draw ? parseDrawText(qMatch.m1Draw)?.heat : undefined) || motoAth.group,
+            m1Draw: draw,
+            group: qMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || motoAth.group,
             place: qMatch?.place || motoAth.place,
           };
         });
@@ -170,10 +171,11 @@ const getAthletesForDraws = (
         // Return these athletes. Merge drawing/sorteio info from semiSub if semiSub exists
         return sAthletesFromQuartas.map((qAth: Athlete) => {
           const sMatch = semiSub?.data.athletes.find((a: Athlete) => a.plate === qAth.plate);
+          const draw = sMatch?.semiDraw || sMatch?.m1Draw || qAth.semiDraw || qAth.m1Draw;
           return {
             ...qAth,
-            m1Draw: sMatch?.m1Draw || qAth.m1Draw,
-            group: sMatch?.group || (sMatch?.m1Draw ? parseDrawText(sMatch.m1Draw)?.heat : undefined) || qAth.group,
+            m1Draw: draw,
+            group: sMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || qAth.group,
             place: sMatch?.place || qAth.place,
           };
         });
@@ -188,10 +190,11 @@ const getAthletesForDraws = (
         // Return these athletes. Merge drawing/sorteio info from semiSub if semiSub exists
         return sAthletes.map((motoAth: Athlete) => {
           const sMatch = semiSub?.data.athletes.find((a: Athlete) => a.plate === motoAth.plate);
+          const draw = sMatch?.semiDraw || sMatch?.m1Draw || motoAth.semiDraw || motoAth.m1Draw;
           return {
             ...motoAth,
-            m1Draw: sMatch?.m1Draw || motoAth.m1Draw,
-            group: sMatch?.group || (sMatch?.m1Draw ? parseDrawText(sMatch.m1Draw)?.heat : undefined) || motoAth.group,
+            m1Draw: draw,
+            group: sMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || motoAth.group,
             place: sMatch?.place || motoAth.place,
           };
         });
@@ -208,10 +211,11 @@ const getAthletesForDraws = (
         // Return these athletes. Merge drawing/sorteio info from finalSub if finalSub exists
         return fAthletesFromSemis.map((sAth: Athlete) => {
           const fMatch = finalSub?.data.athletes.find((a: Athlete) => a.plate === sAth.plate);
+          const draw = fMatch?.finalDraw || fMatch?.m1Draw || sAth.finalDraw || sAth.m1Draw;
           return {
             ...sAth,
-            m1Draw: fMatch?.m1Draw || sAth.m1Draw,
-            group: fMatch?.group || (fMatch?.m1Draw ? parseDrawText(fMatch.m1Draw)?.heat : undefined) || sAth.group,
+            m1Draw: draw,
+            group: fMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || sAth.group,
             place: fMatch?.place || sAth.place,
           };
         });
@@ -226,10 +230,11 @@ const getAthletesForDraws = (
         // Return these athletes. Merge drawing/sorteio info from finalSub if finalSub exists
         return fAthletes.map((motoAth: Athlete) => {
           const fMatch = finalSub?.data.athletes.find((a: Athlete) => a.plate === motoAth.plate);
+          const draw = fMatch?.finalDraw || fMatch?.m1Draw || motoAth.finalDraw || motoAth.m1Draw;
           return {
             ...motoAth,
-            m1Draw: fMatch?.m1Draw || motoAth.m1Draw,
-            group: fMatch?.group || (fMatch?.m1Draw ? parseDrawText(fMatch.m1Draw)?.heat : undefined) || motoAth.group,
+            m1Draw: draw,
+            group: fMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || motoAth.group,
             place: fMatch?.place || motoAth.place,
           };
         });
@@ -238,7 +243,18 @@ const getAthletesForDraws = (
   }
 
   // Fallback to the sub's own athletes list
-  return sub.data.athletes;
+  return sub.data.athletes.map((ath: Athlete) => {
+    let draw = ath.m1Draw;
+    if (isFinal && ath.finalDraw) draw = ath.finalDraw;
+    else if (isSemi && ath.semiDraw) draw = ath.semiDraw;
+    else if (isQuartas && ath.quartasDraw) draw = ath.quartasDraw;
+    
+    return {
+      ...ath,
+      m1Draw: draw,
+      group: ath.group || (draw ? parseDrawText(draw)?.heat : undefined)
+    };
+  });
 };
 
 // Helper to determine if a subcategory has a subsequent phase in the event

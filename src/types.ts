@@ -23,6 +23,9 @@ export interface Athlete {
   m1Draw?: string; // e.g. "10: 3" -> Race 10, Lane 3
   m2Draw?: string;
   m3Draw?: string;
+  finalDraw?: string;
+  semiDraw?: string;
+  quartasDraw?: string;
   group?: string; // e.g. "57"
   transfer?: string; // e.g. "S13"
   totalPoints?: number;
