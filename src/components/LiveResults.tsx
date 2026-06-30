@@ -101,6 +101,13 @@ const isFinalResultsSub = (subName: string): boolean => {
 const isSingleRunPhase = (subName: string): boolean => {
   if (!subName) return false;
   const nameLower = subName.toLowerCase();
+  if (
+    nameLower.includes('transfer') ||
+    nameLower.includes('transferência') ||
+    nameLower.includes('transferencia')
+  ) {
+    return false;
+  }
   return (
     nameLower.includes('final') ||
     nameLower.includes('semi') ||
@@ -305,6 +312,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
     
     const isPhaseSuffix = (str: string): boolean => {
       const lower = str.toLowerCase();
+      if (
+        lower.includes('transfer') ||
+        lower.includes('transferência') ||
+        lower.includes('transferencia')
+      ) {
+        return false;
+      }
       return (
         lower.includes('grupo') ||
         lower.includes('resultado') ||
@@ -326,6 +340,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
     const getFormattedSubName = (sub: string): string => {
       const lower = sub.toLowerCase();
+      if (
+        lower.includes('transfer') ||
+        lower.includes('transferência') ||
+        lower.includes('transferencia')
+      ) {
+        return 'Motos';
+      }
       if (lower === 'final' || lower.includes('final')) return 'Final';
       if (lower.includes('semifinal') || lower === 'semi' || lower === 'sf') return 'Semifinal';
       if (lower.includes('quarta') || lower === 'qf' || lower.includes('1/4')) return 'Quartas de Final';
@@ -966,12 +987,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
             // Filter subcategories based on selection
             let subsToRender: typeof group.subCategories = [];
-            if (resultsMode === 'draws' && isAllMode) {
-              if (!hasQuartas && !hasSemi && !hasFinal) {
-                subsToRender = motosSub ? [motosSub] : [];
-              } else {
-                subsToRender = group.subCategories.filter(sub => !isFinalResultsSub(sub.subName) && sub.subName !== "Classificação Geral");
-              }
+            if (resultsMode === 'draws') {
+              subsToRender = motosSub ? [motosSub] : [];
             } else if (resultsMode === 'motos' && isAllMode) {
               subsToRender = group.subCategories.filter(sub => sub.subName !== "Classificação Geral");
             } else if (!isAllMode) {
@@ -1258,7 +1275,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         {combinedAthletes.length} Pilotos Inscritos
                       </span>
                     </div>
-                    {group.subCategories.length > 1 && (
+                    {resultsMode !== 'draws' && group.subCategories.length > 1 && (
                       <p className="text-[10px] text-slate-500 leading-normal font-medium">
                         Esta categoria possui {group.subCategories.length} fases ou grupos de classificação carregados. Use as abas abaixo para filtrar as visualizações.
                       </p>
@@ -1276,7 +1293,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                 </div>
 
                 {/* Subcategory Tab Selector */}
-                {resultsMode !== 'entries' && resultsMode !== 'overall' && group.subCategories.length > 1 && (
+                {resultsMode !== 'entries' && resultsMode !== 'overall' && resultsMode !== 'draws' && group.subCategories.length > 1 && (
                   <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 bg-slate-50/30 border-b border-slate-100">
                     <button
                       onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'TODAS' }))}
@@ -1875,32 +1892,37 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                             const fullA = combinedAthletes.find((ca: any) => ca.plate === a.plate) || a;
                             const fullB = combinedAthletes.find((ca: any) => ca.plate === b.plate) || b;
 
-                            if (resultsMode === 'draws' && isSingleRunPhase(sub.subName)) {
-                              // First, let's see if they have draw/gate selection values (e.g., "Q5 : 1")
-                              const drawA = parseDrawText(a.m1Draw);
-                              const drawB = parseDrawText(b.m1Draw);
-                              
-                              if (drawA && drawB && drawA.heat === drawB.heat) {
-                                // If they are in the same heat/group, sort them by their lane choice order
-                                const valA = parseInt(drawA.lane, 10) || 9999;
-                                const valB = parseInt(drawB.lane, 10) || 9999;
-                                if (valA !== valB) {
-                                  return valA - valB;
-                                }
-                              } else if (drawA && drawB) {
-                                // Sort by heat/bateria name (e.g. Q5, Q6)
-                                if (drawA.heat !== drawB.heat) {
-                                  return drawA.heat.localeCompare(drawB.heat, undefined, { numeric: true });
-                                }
-                              }
-
-                              // Fallback: preserve their order in the source list!
-                              const idxA = groupAthletes.findIndex(x => x.plate === a.plate);
-                              const idxB = groupAthletes.findIndex(x => x.plate === b.plate);
-                              if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
-                                return idxA - idxB;
-                              }
-                            }
+                             if (resultsMode === 'draws') {
+                               const drawA = parseDrawText(a.m1Draw);
+                               const drawB = parseDrawText(b.m1Draw);
+                               
+                               if (drawA && drawB) {
+                                 const hA = parseInt(drawA.heat, 10);
+                                 const hB = parseInt(drawB.heat, 10);
+                                 if (!isNaN(hA) && !isNaN(hB)) {
+                                   if (hA !== hB) return hA - hB;
+                                 } else {
+                                   if (drawA.heat !== drawB.heat) {
+                                     return drawA.heat.localeCompare(drawB.heat, undefined, { numeric: true });
+                                   }
+                                 }
+                                 const lA = parseInt(drawA.lane, 10) || 9999;
+                                 const lB = parseInt(drawB.lane, 10) || 9999;
+                                 if (lA !== lB) {
+                                   return lA - lB;
+                                 }
+                               } else if (drawA) {
+                                 return -1;
+                               } else if (drawB) {
+                                 return 1;
+                               }
+ 
+                               const idxA = groupAthletes.findIndex(x => x.plate === a.plate);
+                               const idxB = groupAthletes.findIndex(x => x.plate === b.plate);
+                               if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
+                                 return idxA - idxB;
+                               }
+                             }
 
                             const pA = getNumericPlace(a.place);
                             const pB = getNumericPlace(b.place);
@@ -1989,16 +2011,16 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                           ) : (
                                             <>
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
-                                                <span className="sm:hidden">{resultsMode === 'draws' ? 'S1' : 'M1'}</span>
-                                                <span className="hidden sm:inline">{resultsMode === 'draws' ? 'Sorteio M1' : 'Moto 1'}</span>
+                                                <span className="sm:hidden">M1</span>
+                                                <span className="hidden sm:inline">{resultsMode === 'draws' ? 'M1' : 'Moto 1'}</span>
                                               </th>
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
-                                                <span className="sm:hidden">{resultsMode === 'draws' ? 'S2' : 'M2'}</span>
-                                                <span className="hidden sm:inline">{resultsMode === 'draws' ? 'Sorteio M2' : 'Moto 2'}</span>
+                                                <span className="sm:hidden">M2</span>
+                                                <span className="hidden sm:inline">{resultsMode === 'draws' ? 'M2' : 'Moto 2'}</span>
                                               </th>
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">
-                                                <span className="sm:hidden">{resultsMode === 'draws' ? 'S3' : 'M3'}</span>
-                                                <span className="hidden sm:inline">{resultsMode === 'draws' ? 'Sorteio M3' : 'Moto 3'}</span>
+                                                <span className="sm:hidden">M3</span>
+                                                <span className="hidden sm:inline">{resultsMode === 'draws' ? 'M3' : 'Moto 3'}</span>
                                               </th>
                                             </>
                                           )

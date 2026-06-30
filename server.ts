@@ -64,40 +64,82 @@ function isSingleRunPhaseName(categoryName: string): boolean {
 
 // Helper to normalize the phase name / transfer text for category merging.
 // If it's a moto-draw or entries phase, we normalize it to "" (empty) so it merges into the main "Motos" category in the database.
-function getNormalizedPhaseText(phase: string): string {
-  if (!phase) return "";
-  const lower = phase.trim().toLowerCase();
-  
+function getNormalizedPhaseText(phase: string, filename?: string, reportType?: string): string {
+  const rtLower = (reportType || "").toLowerCase();
+  const fnLower = (filename || "").toLowerCase();
+  const transLower = (phase || "").toLowerCase();
+
+  // 1. Explicit checks based on filename/reportType first, as they are highly reliable indicators of the report's intent
   if (
-    lower.includes("final") ||
-    lower.includes("semi") ||
-    lower.includes("quarta") ||
-    lower.includes("quarter") ||
-    lower.includes("1/2") ||
-    lower.includes("1/4") ||
-    lower.includes("oitava") ||
-    lower.includes("1/8")
+    rtLower.includes("final") && !rtLower.includes("semi") && !rtLower.includes("quarta") && !rtLower.includes("quarter") && !rtLower.includes("1/4") ||
+    fnLower.includes("final") && !fnLower.includes("semi") && !fnLower.includes("quarta") && !fnLower.includes("quarter") && !fnLower.includes("1/4")
   ) {
-    return phase;
+    return "Final";
   }
-  
+  if (rtLower.includes("semi") || rtLower.includes("1/2") || fnLower.includes("semi") || fnLower.includes("1/2")) {
+    return "Semifinal";
+  }
   if (
-    lower.includes("draw") ||
-    lower.includes("sorteio") ||
-    lower.includes("gate") ||
-    lower.includes("raia") ||
-    lower.includes("largada") ||
-    lower.includes("inscrito") ||
-    lower.includes("entry") ||
-    lower.includes("entries") ||
-    lower.includes("piloto") ||
-    lower.includes("moto") ||
-    lower.includes("bateria") ||
-    lower.includes("grupo")
+    rtLower.includes("quarta") || rtLower.includes("quarter") || rtLower.includes("1/4") ||
+    fnLower.includes("quarta") || fnLower.includes("quarter") || fnLower.includes("1/4")
+  ) {
+    return "Quartas de Final";
+  }
+  if (
+    rtLower.includes("oitava") || rtLower.includes("1/8") ||
+    fnLower.includes("oitava") || fnLower.includes("1/8")
+  ) {
+    return "Oitavas de Final";
+  }
+
+  // 2. Full Results check
+  if (rtLower.includes("full") || rtLower.includes("completo")) {
+    return "Classificação Geral";
+  }
+
+  // 3. Fallback to phase text if we don't have enough context from filename or report type
+  if (!phase) return "";
+
+  // If transfer text has "transferência", but specifies a destination, let's see:
+  if (
+    transLower.includes("transfer") ||
+    transLower.includes("transferência") ||
+    transLower.includes("transferencia") ||
+    transLower.startsWith("transf")
   ) {
     return "";
   }
-  
+
+  if (
+    transLower.includes("final") ||
+    transLower.includes("semi") ||
+    transLower.includes("quarta") ||
+    transLower.includes("quarter") ||
+    transLower.includes("1/2") ||
+    transLower.includes("1/4") ||
+    transLower.includes("oitava") ||
+    transLower.includes("1/8")
+  ) {
+    return phase;
+  }
+
+  if (
+    transLower.includes("draw") ||
+    transLower.includes("sorteio") ||
+    transLower.includes("gate") ||
+    transLower.includes("raia") ||
+    transLower.includes("largada") ||
+    transLower.includes("inscrito") ||
+    transLower.includes("entry") ||
+    transLower.includes("entries") ||
+    transLower.includes("piloto") ||
+    transLower.includes("moto") ||
+    transLower.includes("bateria") ||
+    transLower.includes("grupo")
+  ) {
+    return "";
+  }
+
   return phase;
 }
 
@@ -263,7 +305,7 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
     let categoryName = normalizeCategoryName(headerInfo.Category || "");
     if (!categoryName) continue;
     const transferText = headerInfo.Transfer || "";
-    const normPhase = getNormalizedPhaseText(transferText);
+    const normPhase = getNormalizedPhaseText(transferText, filename, reportType);
     if (isFullResults) {
       categoryName = `${categoryName} - Classificação Geral`;
     } else if (normPhase && normPhase.trim() !== "") {
@@ -615,7 +657,7 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
 
     if (!categoryName) continue;
 
-    const normPhase = phaseText ? getNormalizedPhaseText(phaseText) : "";
+    const normPhase = phaseText ? getNormalizedPhaseText(phaseText, filename, htmlContent.toUpperCase().includes("MOTO DRAWS") ? "MOTO DRAWS" : "") : "";
     if (isFullResults) {
       categoryName = `${categoryName} - Classificação Geral`;
     } else if (normPhase && normPhase.trim() !== "") {
