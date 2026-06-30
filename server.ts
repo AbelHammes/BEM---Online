@@ -287,19 +287,25 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
     // Helper to find index of a header in either local or Portuguese
     const findColIdx = (aliases: string[]) => {
       return headers.findIndex((h, idx) => {
-        const hLower = h.toLowerCase();
-        const dLower = (displayHeaders[idx] || "").toLowerCase();
-        return aliases.some(alias => hLower.includes(alias.toLowerCase()) || dLower.includes(alias.toLowerCase()));
+        const hLower = h.trim().toLowerCase();
+        const dLower = (displayHeaders[idx] || "").trim().toLowerCase();
+        return aliases.some(alias => {
+          const al = alias.trim().toLowerCase();
+          if (al.length <= 1) {
+            return hLower === al || dLower === al;
+          }
+          return hLower.includes(al) || dLower.includes(al);
+        });
       });
     };
 
     const plateIdx = findColIdx(["plate", "placa"]);
     const fNameIdx = findColIdx(["first name", "nome"]);
     const lNameIdx = findColIdx(["last name", "familia", "sobrenome"]);
-    const clubIdx = findColIdx(["club", "clube"]);
+    const clubIdx = findColIdx(["club", "clube", "regiao", "região"]);
     const stateIdx = findColIdx(["state", "estado"]);
     const countryIdx = findColIdx(["country", "pais", "país"]);
-    const uciIdx = findColIdx(["uci id", "id da uci"]);
+    const uciIdx = findColIdx(["uci id", "id da uci", "id cbd", "cbd"]);
     const sponsorIdx = findColIdx(["sponsor", "patrocinador"]);
     const transponderIdx = findColIdx(["transponder", "tx", "chip", "trsp"]);
     const drawIdx = findColIdx(["draw", "sorteio", "gate", "raia"]);
@@ -335,7 +341,7 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
     }
 
     // Moto columns
-    const m1Idx = findColIdx(["m1 place", "m1 lugar", "m 1 Place", "m1"]);
+    const m1Idx = findColIdx(["m1 place", "m1 lugar", "m 1 Place", "m1", "moto 1", "moto1", "bateria na moto 1", "m 1"]);
     const m1TimeIdx = findColIdx([
       "m1 lap time", "m1 tempo de volta", "m1 tempo", "m1-tempo", "m 1 lap time", "m 1 tempo", "m 1 time", "m1 time", "m1 t.", "m1 t", "t1", "t.1", "tempo de volta", "tempo de volta 1", "tempo", "tempo 1", "lap time", "time", "t.", "t", "t m1", "tm1", "tempo m1", "m1 t. volta", "m1 t volta", "volta m1"
     ]);
@@ -343,7 +349,7 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
       "m1 start reaction", "m1 iniciar reação", "m1 reação", "m1 reacao", "m 1 start reaction", "m 1 reação", "m 1 reacao", "m1 reaction", "m 1 reaction", "m1 r.", "m1 r", "r1", "r.1", "reação", "reacao", "reaction", "start reaction", "r.", "r", "r m1", "rm1", "reação m1", "reacao m1", "reacao 1", "reação 1"
     ]);
 
-    const m2Idx = findColIdx(["m2 place", "m2 lugar", "m 2 Place", "m2"]);
+    const m2Idx = findColIdx(["m2 place", "m2 lugar", "m 2 Place", "m2", "moto 2", "moto2", "bateria na moto 2", "m 2"]);
     const m2TimeIdx = findColIdx([
       "m2 lap time", "m2 tempo de volta", "m2 tempo", "m2-tempo", "m 2 lap time", "m 2 tempo", "m 2 time", "m2 time", "m2 t.", "m2 t", "t2", "t.2", "tempo de volta 2", "tempo 2", "t m2", "tm2", "tempo m2", "m2 t. volta", "m2 t volta", "volta m2"
     ]);
@@ -351,7 +357,7 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
       "m2 start reaction", "m2 iniciar reação", "m2 reação", "m2 reacao", "m 2 start reaction", "m 2 reação", "m 2 reacao", "m2 reaction", "m 2 reaction", "m2 r.", "m2 r", "r2", "r.2", "reacao 2", "reação 2", "r m2", "rm2", "reação m2", "reacao m2"
     ]);
 
-    const m3Idx = findColIdx(["m3 place", "m3 lugar", "m 3 Place", "m3"]);
+    const m3Idx = findColIdx(["m3 place", "m3 lugar", "m 3 Place", "m3", "moto 3", "moto3", "bateria na moto 3", "m 3"]);
     const m3TimeIdx = findColIdx([
       "m3 lap time", "m3 tempo de volta", "m3 tempo", "m3-tempo", "m 3 lap time", "m 3 tempo", "m 3 time", "m3 time", "m3 t.", "m3 t", "t3", "t.3", "tempo de volta 3", "tempo 3", "t m3", "tm3", "tempo m3", "m3 t. volta", "m3 t volta", "volta m3"
     ]);
@@ -664,10 +670,14 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
       });
       if (idx !== -1) return idx;
 
-      // Second, try partial match
+      // Second, try partial match (excluding single-character aliases to avoid false matches)
       return headers.findIndex(h => {
         const hl = h.toLowerCase();
-        return aliases.some(alias => hl.includes(alias.toLowerCase()));
+        return aliases.some(alias => {
+          const al = alias.toLowerCase();
+          if (al.length <= 1) return false;
+          return hl.includes(al);
+        });
       });
     };
 
