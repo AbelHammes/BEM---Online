@@ -122,6 +122,10 @@ const isAthleteFromSourcePhase = (ath: Athlete, subName: string): boolean => {
   const fileLower = ath.sourceFile.toLowerCase();
   const phaseLower = subName.toLowerCase();
   
+  // If the file name doesn't contain any phase indicators, do not filter out by file name
+  const fileHasPhase = fileLower.includes('quarta') || fileLower.includes('quarter') || fileLower.includes('1/4') || fileLower.includes('semi') || fileLower.includes('1/2') || fileLower.includes('final');
+  if (!fileHasPhase) return true;
+
   if (phaseLower.includes('quarta') || phaseLower.includes('1/4') || phaseLower.includes('quarter')) {
     return fileLower.includes('quarta') || fileLower.includes('quarter') || fileLower.includes('1/4');
   }
@@ -132,6 +136,21 @@ const isAthleteFromSourcePhase = (ath: Athlete, subName: string): boolean => {
     return fileLower.includes('final') && !fileLower.includes('semi') && !fileLower.includes('quarter') && !fileLower.includes('quarta') && !fileLower.includes('1/4');
   }
   return true;
+};
+
+// Helper to check if a subcategory is the actual final phase (not semi, quartas, etc.)
+const isActualFinalPhase = (subName: string): boolean => {
+  if (!subName) return false;
+  const nameLower = subName.toLowerCase();
+  return (
+    (nameLower.includes('final') || nameLower.includes('finais')) &&
+    !nameLower.includes('semi') &&
+    !nameLower.includes('quarta') &&
+    !nameLower.includes('oitava') &&
+    !nameLower.includes('1/2') &&
+    !nameLower.includes('1/4') &&
+    !nameLower.includes('1/8')
+  );
 };
 
 // Helper to retrieve the correct athletes list for each single-run phase in Draws mode
@@ -1331,7 +1350,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         }`}
                       >
                         <Zap size={12} />
-                        Quartas
+                        Quartas de Final
                       </button>
                     )}
 
@@ -1345,7 +1364,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         }`}
                       >
                         <Award size={12} />
-                        Semi
+                        Semifinal
                       </button>
                     )}
 
@@ -1886,6 +1905,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                               return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
                             }
 
+                            const isSingleRun = isSingleRunPhase(sub.subName);
                             const isFinal = isFinalResultsSub(sub.subName);
 
                             // Lookup full athletes history from combinedAthletes
@@ -1933,8 +1953,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                             const ptsB = getPointsVal(b.points);
 
                             if (resultsMode === 'overall' || resultsMode === 'motos') {
-                              if (isFinal) {
-                                // If it's a final results subcategory, place takes precedence
+                              if (isFinal || isSingleRun) {
+                                // If it's a final results subcategory or single run phase, place takes precedence
                                 if (scoreA !== scoreB) return scoreA - scoreB;
                                 if (ptsA !== ptsB) return ptsA - ptsB;
                               } else {
@@ -2037,8 +2057,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         const numPlace = getNumericPlace(ath.place);
                                         // We only show placements and rankings if there actually are numeric results published for this group
                                         const rankInt = numPlace;
-                                        const isFinal = isFinalResultsSub(sub.subName);
-                                        const showTrophies = (resultsMode === 'overall' || (resultsMode === 'motos' && isFinal)) && hasAnyNumericPlace;
+                                        const isFinalPhase = isActualFinalPhase(sub.subName);
+                                        const showTrophies = (resultsMode === 'overall' || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
                                         const isFirst = showTrophies && rankInt === 1;
                                         const isSecond = showTrophies && rankInt === 2;
                                         const isThird = showTrophies && rankInt === 3;
@@ -2080,7 +2100,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                   <span className="text-slate-400 font-mono font-bold">{rankInt}º</span>
                                                 ) : (
                                                   <span className="text-slate-400 font-mono font-bold">
-                                                    {(resultsMode === 'overall' || (resultsMode === 'motos' && !isFinal)) ? `${idx + 1}º` : (ath.place || '-')}
+                                                    {(resultsMode === 'overall' || (resultsMode === 'motos' && !isSingleRunPhase(sub.subName))) ? `${idx + 1}º` : (ath.place || '-')}
                                                   </span>
                                                 )}
                                               </td>
@@ -2388,8 +2408,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                   {sortedAthletes.map((ath, idx) => {
                                     const numPlace = getNumericPlace(ath.place);
                                     const rankInt = numPlace;
-                                    const isFinal = isFinalResultsSub(sub.subName);
-                                    const showTrophies = (resultsMode === 'overall' || (resultsMode === 'motos' && isFinal)) && hasAnyNumericPlace;
+                                    const isFinalPhase = isActualFinalPhase(sub.subName);
+                                    const showTrophies = (resultsMode === 'overall' || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
                                     const showSpecialHighlights = resultsMode !== 'draws';
                                     const isFirst = showSpecialHighlights && showTrophies && rankInt === 1;
                                     const isSecond = showSpecialHighlights && showTrophies && rankInt === 2;
@@ -2435,7 +2455,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                   isThird ? 'bg-amber-100 text-amber-800' :
                                                   'bg-slate-100 text-slate-600'
                                                 }`}>
-                                                  {rankInt !== null ? `${rankInt}º` : ((resultsMode === 'overall' || (resultsMode === 'motos' && !isFinal)) ? `${idx + 1}º` : (ath.place || '-'))}
+                                                  {rankInt !== null ? `${rankInt}º` : ((resultsMode === 'overall' || (resultsMode === 'motos' && !isSingleRunPhase(sub.subName))) ? `${idx + 1}º` : (ath.place || '-'))}
                                                 </div>
                                               ) : null}
 
