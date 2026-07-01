@@ -66,6 +66,136 @@ const friendlyTransferText = (code?: string) => {
   return `Avança de Fase (${upper})`;
 };
 
+// Helper to parse numeric place
+const getAthleteNumericPlace = (placeStr: string | undefined | null): number | null => {
+  if (!placeStr) return null;
+  const match = placeStr.match(/\d+/);
+  if (match) {
+    const parsed = parseInt(match[0], 10);
+    return isNaN(parsed) ? null : parsed;
+  }
+  return null;
+};
+
+// Helper to parse points value
+const getAthletePointsVal = (pts: number | string | undefined | null): number => {
+  if (pts === undefined || pts === null || pts === '') return 9999;
+  if (typeof pts === 'number') return pts;
+  const clean = pts.toString().replace(/[^0-9]/g, '');
+  const parsed = parseInt(clean, 10);
+  return isNaN(parsed) ? 9999 : parsed;
+};
+
+// Sorter for athletes in a given phase/subcategory and group
+export function sortGroupAthletes(
+  athletes: Athlete[], 
+  subName: string, 
+  resultsMode: string,
+  combinedAthletes?: Athlete[]
+): Athlete[] {
+  if (!athletes || athletes.length === 0) return [];
+
+  const isSingleRun = isSingleRunPhase(subName);
+  const isFinal = isFinalResultsSub(subName);
+
+  // Determine if there are ANY results (numeric place, valid times, or non-empty place)
+  // for the athletes in this specific group.
+  const hasAnyResults = athletes.some(ath => {
+    const numPlace = getAthleteNumericPlace(ath.place);
+    const m1Time = ath.m1Time;
+    return numPlace !== null || (m1Time && m1Time.trim() !== "" && m1Time !== "0.000" && m1Time !== "0.000s" && m1Time !== "-");
+  });
+
+  // If this is a single-run phase (Quartas de Final, Semifinal, Final) and resultsMode is 'motos' or similar,
+  // and we do NOT have any results yet, sort them by their lane choice (ordem de escolha de raias) ascending.
+  if (isSingleRun && (resultsMode === 'motos' || resultsMode === 'overall') && !hasAnyResults) {
+    return [...athletes].sort((a, b) => {
+      const drawValA = a.m1Draw || a.finalDraw || a.semiDraw || a.quartasDraw;
+      const drawValB = b.m1Draw || b.finalDraw || b.semiDraw || b.quartasDraw;
+      const drawA = parseDrawText(drawValA);
+      const drawB = parseDrawText(drawValB);
+
+      const lA = drawA?.lane ? parseInt(drawA.lane, 10) : 9999;
+      const lB = drawB?.lane ? parseInt(drawB.lane, 10) : 9999;
+
+      if (lA !== lB) {
+        return lA - lB;
+      }
+      
+      // Fallback to alphabetical
+      return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
+    });
+  }
+
+  // Otherwise, use the standard sorting based on results from the BEM-generated file.
+  return [...athletes].sort((a, b) => {
+    if (resultsMode === 'entries') {
+      return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
+    }
+
+    if (resultsMode === 'draws') {
+      const drawA = parseDrawText(a.m1Draw);
+      const drawB = parseDrawText(b.m1Draw);
+      
+      if (drawA && drawB) {
+        const hA = parseInt(drawA.heat, 10);
+        const hB = parseInt(drawB.heat, 10);
+        if (!isNaN(hA) && !isNaN(hB)) {
+          if (hA !== hB) return hA - hB;
+        } else {
+          if (drawA.heat !== drawB.heat) {
+            return drawA.heat.localeCompare(drawB.heat, undefined, { numeric: true });
+          }
+        }
+        const lA = parseInt(drawA.lane, 10) || 9999;
+        const lB = parseInt(drawB.lane, 10) || 9999;
+        if (lA !== lB) {
+          return lA - lB;
+        }
+      } else if (drawA) {
+        return -1;
+      } else if (drawB) {
+        return 1;
+      }
+
+      const idxA = athletes.findIndex(x => x.plate === a.plate);
+      const idxB = athletes.findIndex(x => x.plate === b.plate);
+      if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
+        return idxA - idxB;
+      }
+    }
+
+    // Lookup full athletes history from combinedAthletes if available
+    const fullA = combinedAthletes?.find((ca: any) => ca.plate === a.plate) || a;
+    const fullB = combinedAthletes?.find((ca: any) => ca.plate === b.plate) || b;
+
+    const pA = getAthleteNumericPlace(a.place);
+    const pB = getAthleteNumericPlace(b.place);
+    const scoreA = pA === null ? 9999 : pA;
+    const scoreB = pB === null ? 9999 : pB;
+
+    const ptsA = getAthletePointsVal(a.points);
+    const ptsB = getAthletePointsVal(b.points);
+
+    if (resultsMode === 'overall' || resultsMode === 'motos') {
+      if (isFinal || isSingleRun) {
+        // If it's a final results subcategory or single run phase, place takes precedence
+        if (scoreA !== scoreB) return scoreA - scoreB;
+        if (ptsA !== ptsB) return ptsA - ptsB;
+      } else {
+        // Otherwise, points (M-PTS) takes precedence
+        if (ptsA !== ptsB) return ptsA - ptsB;
+        if (scoreA !== scoreB) return scoreA - scoreB;
+      }
+    } else {
+      if (scoreA !== scoreB) return scoreA - scoreB;
+      if (ptsA !== ptsB) return ptsA - ptsB;
+    }
+
+    return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
+  });
+}
+
 // Helper function to de-duplicate name strings
 export function cleanDuplicateNames(firstName: string, lastName: string): { firstName: string, lastName: string } {
   let f = (firstName || "").trim();
@@ -771,34 +901,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   <tbody>
             `;
 
-            const sortedAthletes = [...athletesByGroup[gKey]].sort((a, b) => {
-              const isFinal = isFinalResultsSub(sub.subName);
-
-              const pA = getNumericPlace(a.place);
-              const pB = getNumericPlace(b.place);
-              const scoreA = pA === null ? 9999 : pA;
-              const scoreB = pB === null ? 9999 : pB;
-
-              const ptsA = getPointsVal(a.points);
-              const ptsB = getPointsVal(b.points);
-
-              if (resultsMode === 'overall' || resultsMode === 'motos') {
-                if (isFinal) {
-                  // If it's a final results subcategory, place takes precedence
-                  if (scoreA !== scoreB) return scoreA - scoreB;
-                  if (ptsA !== ptsB) return ptsA - ptsB;
-                } else {
-                  // Otherwise, points (M-PTS) takes precedence
-                  if (ptsA !== ptsB) return ptsA - ptsB;
-                  if (scoreA !== scoreB) return scoreA - scoreB;
-                }
-              } else {
-                if (scoreA !== scoreB) return scoreA - scoreB;
-                if (ptsA !== ptsB) return ptsA - ptsB;
-              }
-
-              return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
-            });
+            const sortedAthletes = sortGroupAthletes(athletesByGroup[gKey], sub.subName, resultsMode);
 
             sortedAthletes.forEach(ath => {
               const m1Str = resultsMode === 'draws' 
@@ -1988,75 +2091,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                           const hasAnyNumericPlace = groupAthletes.some(a => getNumericPlace(a.place) !== null);
 
                           // Sorting logic depending on overall or plate
-                          const sortedAthletes = [...groupAthletes].sort((a, b) => {
-                            if (resultsMode === 'entries') {
-                              return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
-                            }
-
-                            const isSingleRun = isSingleRunPhase(sub.subName);
-                            const isFinal = isFinalResultsSub(sub.subName);
-
-                            // Lookup full athletes history from combinedAthletes
-                            const fullA = combinedAthletes.find((ca: any) => ca.plate === a.plate) || a;
-                            const fullB = combinedAthletes.find((ca: any) => ca.plate === b.plate) || b;
-
-                             if (resultsMode === 'draws') {
-                               const drawA = parseDrawText(a.m1Draw);
-                               const drawB = parseDrawText(b.m1Draw);
-                               
-                               if (drawA && drawB) {
-                                 const hA = parseInt(drawA.heat, 10);
-                                 const hB = parseInt(drawB.heat, 10);
-                                 if (!isNaN(hA) && !isNaN(hB)) {
-                                   if (hA !== hB) return hA - hB;
-                                 } else {
-                                   if (drawA.heat !== drawB.heat) {
-                                     return drawA.heat.localeCompare(drawB.heat, undefined, { numeric: true });
-                                   }
-                                 }
-                                 const lA = parseInt(drawA.lane, 10) || 9999;
-                                 const lB = parseInt(drawB.lane, 10) || 9999;
-                                 if (lA !== lB) {
-                                   return lA - lB;
-                                 }
-                               } else if (drawA) {
-                                 return -1;
-                               } else if (drawB) {
-                                 return 1;
-                               }
- 
-                               const idxA = groupAthletes.findIndex(x => x.plate === a.plate);
-                               const idxB = groupAthletes.findIndex(x => x.plate === b.plate);
-                               if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
-                                 return idxA - idxB;
-                               }
-                             }
-
-                            const pA = getNumericPlace(a.place);
-                            const pB = getNumericPlace(b.place);
-                            const scoreA = pA === null ? 9999 : pA;
-                            const scoreB = pB === null ? 9999 : pB;
-
-                            const ptsA = getPointsVal(a.points);
-                            const ptsB = getPointsVal(b.points);
-
-                            if (resultsMode === 'overall' || resultsMode === 'motos') {
-                              if (isFinal || isSingleRun) {
-                                // If it's a final results subcategory or single run phase, place takes precedence
-                                if (scoreA !== scoreB) return scoreA - scoreB;
-                                if (ptsA !== ptsB) return ptsA - ptsB;
-                              } else {
-                                // Otherwise, points (M-PTS) takes precedence
-                                if (ptsA !== ptsB) return ptsA - ptsB;
-                                if (scoreA !== scoreB) return scoreA - scoreB;
-                              }
-                            } else {
-                              if (scoreA !== scoreB) return scoreA - scoreB;
-                              if (ptsA !== ptsB) return ptsA - ptsB;
-                            }
-
-                            return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
-                          });
+                          const sortedAthletes = sortGroupAthletes(groupAthletes, sub.subName, resultsMode, combinedAthletes);
 
                           if (groupAthletes.length === 0) {
                             return null;
