@@ -181,7 +181,7 @@ const getAthletesForDraws = (
             ...motoAth,
             m1Draw: draw,
             group: qMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || motoAth.group,
-            place: qMatch?.place || motoAth.place,
+            place: qMatch ? qMatch.place : "",
           };
         });
       }
@@ -202,7 +202,7 @@ const getAthletesForDraws = (
             ...qAth,
             m1Draw: draw,
             group: sMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || qAth.group,
-            place: sMatch?.place || qAth.place,
+            place: sMatch ? sMatch.place : "",
           };
         });
       }
@@ -221,7 +221,7 @@ const getAthletesForDraws = (
             ...motoAth,
             m1Draw: draw,
             group: sMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || motoAth.group,
-            place: sMatch?.place || motoAth.place,
+            place: sMatch ? sMatch.place : "",
           };
         });
       }
@@ -242,7 +242,7 @@ const getAthletesForDraws = (
             ...sAth,
             m1Draw: draw,
             group: fMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || sAth.group,
-            place: fMatch?.place || sAth.place,
+            place: fMatch ? fMatch.place : "",
           };
         });
       }
@@ -261,7 +261,7 @@ const getAthletesForDraws = (
             ...motoAth,
             m1Draw: draw,
             group: fMatch?.group || (draw ? parseDrawText(draw)?.heat : undefined) || motoAth.group,
-            place: fMatch?.place || motoAth.place,
+            place: fMatch ? fMatch.place : "",
           };
         });
       }
@@ -1210,7 +1210,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   const quartasPts = getNumericPlace(quartasStr) || 0;
                   const mPts = ath.points !== undefined && ath.points !== null ? Number(ath.points) : 0;
 
-                  const calculatedTotalPoints = finalPts + semiPts + quartasPts + mPts;
+                  const calculatedTotalPoints = mPts;
                   
                   if (athletesMap[plate]) {
                     // Update points / mpts / totalPoints
@@ -1268,34 +1268,49 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                   }
                 });
               } else {
-                // Original fallback logic
-                list.forEach((ath: any) => {
-                  let score = 9999;
-                  const fPlace = getNumericPlace(ath.finalPlace);
-                  const sPlace = getNumericPlace(ath.semiPlace);
-                  const qPlace = getNumericPlace(ath.quartasPlace);
-                  const mptsVal = ath.mpts !== undefined && ath.mpts !== null ? Number(ath.mpts) : 999;
-
-                  if (fPlace !== null) {
-                    score = fPlace;
-                  } else if (sPlace !== null) {
-                    score = 10 + sPlace;
-                  } else if (qPlace !== null) {
-                    score = 30 + qPlace;
-                  } else {
-                    score = 100 + mptsVal;
+                // Advanced fallback sorting matching exact BMX/BEM progression and points tie-breaking rules
+                list.sort((a: any, b: any) => {
+                  const fA = getNumericPlace(a.finalPlace);
+                  const fB = getNumericPlace(b.finalPlace);
+                  if (fA !== null || fB !== null) {
+                    if (fA !== null && fB !== null) return fA - fB;
+                    return fA !== null ? -1 : 1;
                   }
-                  ath.overallRankScore = score;
 
-                  // Sum points of all phases for total classification points
-                  const qNumPlace = getNumericPlace(ath.quartasPlace);
-                  const sNumPlace = getNumericPlace(ath.semiPlace);
-                  const fNumPlace = getNumericPlace(ath.finalPlace);
+                  const sA = getNumericPlace(a.semiPlace);
+                  const sB = getNumericPlace(b.semiPlace);
+                  if (sA !== null || sB !== null) {
+                    if (sA !== null && sB !== null) {
+                      if (sA !== sB) return sA - sB;
+                      const ptsA = a.mpts !== undefined && a.mpts !== null ? Number(a.mpts) : 999;
+                      const ptsB = b.mpts !== undefined && b.mpts !== null ? Number(b.mpts) : 999;
+                      return ptsA - ptsB;
+                    }
+                    return sA !== null ? -1 : 1;
+                  }
 
-                  const qPts = qNumPlace !== null ? qNumPlace : 0;
-                  const sPts = sNumPlace !== null ? sNumPlace : 0;
-                  const fPts = fNumPlace !== null ? fNumPlace : 0;
+                  const qA = getNumericPlace(a.quartasPlace);
+                  const qB = getNumericPlace(b.quartasPlace);
+                  if (qA !== null || qB !== null) {
+                    if (qA !== null && qB !== null) {
+                      if (qA !== qB) return qA - qB;
+                      const ptsA = a.mpts !== undefined && a.mpts !== null ? Number(a.mpts) : 999;
+                      const ptsB = b.mpts !== undefined && b.mpts !== null ? Number(b.mpts) : 999;
+                      return ptsA - ptsB;
+                    }
+                    return qA !== null ? -1 : 1;
+                  }
 
+                  const ptsA = a.mpts !== undefined && a.mpts !== null ? Number(a.mpts) : 999;
+                  const ptsB = b.mpts !== undefined && b.mpts !== null ? Number(b.mpts) : 999;
+                  if (ptsA !== ptsB) return ptsA - ptsB;
+
+                  return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
+                });
+
+                // Set totalPoints and overallRankScore based on sorted index
+                list.forEach((ath: any, idx: number) => {
+                  ath.overallRankScore = idx + 1;
                   let mPts = 0;
                   if (ath.mpts !== undefined && ath.mpts !== null) {
                     mPts = Number(ath.mpts);
@@ -1305,15 +1320,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                     const m3Num = getNumericPlace(ath.m3Place);
                     mPts = (m1Num ?? 0) + (m2Num ?? 0) + (m3Num ?? 0);
                   }
-
-                  ath.totalPoints = mPts + qPts + sPts + fPts;
-                });
-
-                list.sort((a: any, b: any) => {
-                  if (a.overallRankScore !== b.overallRankScore) {
-                    return a.overallRankScore - b.overallRankScore;
-                  }
-                  return (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName);
+                  ath.totalPoints = mPts;
                 });
               }
 
@@ -1873,13 +1880,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                     const isSingleRun = isSingleRunPhase(sub.subName);
                     if (isSingleRun && resultsMode === 'motos') {
                       filteredAthletesInCat = filteredAthletesInCat.filter((ath) => {
-                        if (!isAthleteFromSourcePhase(ath, sub.subName)) return false;
-                        const hasGroup = ath.group && ath.group.trim() !== "";
-                        const hasPlace = ath.place && ath.place.trim() !== "";
-                        const hasTransfer = ath.transfer && ath.transfer.trim() !== "";
-                        const hasDraw = ath.m1Draw && ath.m1Draw.trim() !== "";
-                        const hasTime = ath.m1Time && ath.m1Time.trim() !== "";
-                        return !!(hasGroup || hasPlace || hasTransfer || hasDraw || hasTime);
+                        return isAthleteFromSourcePhase(ath, sub.subName);
                       });
                     }
 
@@ -1887,8 +1888,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                     const athletesByGroup: Record<string, Athlete[]> = {};
                     let hasGroups = false;
                     filteredAthletesInCat.forEach(ath => {
-                      const g = ath.group || 'Geral';
-                      if (ath.group) hasGroups = true;
+                      const drawVal = ath.finalDraw || ath.semiDraw || ath.quartasDraw || ath.m1Draw;
+                      const parsedDraw = drawVal ? parseDrawText(drawVal) : null;
+                      const inferredGroup = parsedDraw?.heat || ath.group || '';
+                      
+                      const g = inferredGroup || 'Geral';
+                      if (inferredGroup) hasGroups = true;
                       if (!athletesByGroup[g]) {
                         athletesByGroup[g] = [];
                       }
@@ -2070,7 +2075,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             ) : (
                                               <>
 
-                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800">Tempo de Volta</th>
+                                              <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs text-blue-800">Bateria / Raia</th>
+                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800">Tempo de Volta</th>
                                               <th className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs">Reação</th>
                                             </>
                                            )
@@ -2105,7 +2111,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         const rankInt = numPlace;
                                         const isFinalPhase = isActualFinalPhase(sub.subName);
                                         const hasFinalResults = hasCompletedFinalResults(group);
-                                        const showTrophies = ((resultsMode === 'overall' && hasFinalResults) || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
+                                        const showTrophies = hasFinalResults && ((resultsMode === 'overall') || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
                                         const isFirst = showTrophies && rankInt === 1;
                                         const isSecond = showTrophies && rankInt === 2;
                                         const isThird = showTrophies && rankInt === 3;
@@ -2231,24 +2237,24 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                   </td>
                                                 ) : (
                                                   <>
-                                                  {/* Sorteio / Gate */}
-                                                  <td className="hidden">
-                                                    {ath.m1Draw ? (
-                                                      (() => {
-                                                        const p = parseDrawText(ath.m1Draw);
-                                                        return p ? (
-                                                          <div className="text-xxs space-y-0.5">
-                                                            <div className="font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 sm:px-1.5 py-0.5 inline-block">
-                                                              B. {p.heat}
-                                                            </div>
-                                                            <div className="font-extrabold text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-1 sm:px-1.5 py-0.5 inline-block sm:ml-1">
-                                                              R. {p.lane}
-                                                            </div>
-                                                          </div>
-                                                        ) : <span className="font-mono text-slate-500 font-bold text-[10px] sm:text-xs">{ath.m1Draw}</span>;
-                                                      })()
-                                                    ) : <span className="text-slate-300">-</span>}
-                                                  </td>
+                                                                                                     {/* Sorteio / Gate */}
+                                                   <td className="p-1 sm:p-3 text-center border-l border-slate-50">
+                                                     {(() => {
+                                                       const drawVal = ath.finalDraw || ath.semiDraw || ath.quartasDraw || ath.m1Draw;
+                                                       if (!drawVal) return <span className="text-slate-300">-</span>;
+                                                       const p = parseDrawText(drawVal);
+                                                       return p ? (
+                                                         <div className="text-xxs space-y-0.5">
+                                                           <div className="font-bold text-blue-700 bg-blue-50 border border-blue-100 rounded px-1 sm:px-1.5 py-0.5 inline-block">
+                                                             B. {p.heat}
+                                                           </div>
+                                                           <div className="font-extrabold text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-1 sm:px-1.5 py-0.5 inline-block sm:ml-1 font-mono">
+                                                             R. {p.lane}
+                                                           </div>
+                                                         </div>
+                                                       ) : <span className="font-mono text-slate-500 font-bold text-[10px] sm:text-xs">{drawVal}</span>;
+                                                     })()}
+                                                   </td>
 
                                                   {/* Tempo de Volta */}
                                                   <td className="p-1 sm:p-3 text-center border-l border-slate-50 font-mono text-[10px] sm:text-xs font-bold text-emerald-600">
@@ -2457,7 +2463,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     const rankInt = numPlace;
                                     const isFinalPhase = isActualFinalPhase(sub.subName);
                                     const hasFinalResults = hasCompletedFinalResults(group);
-                                    const showTrophies = ((resultsMode === 'overall' && hasFinalResults) || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
+                                    const showTrophies = hasFinalResults && ((resultsMode === 'overall') || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
                                     const showSpecialHighlights = resultsMode !== 'draws';
                                     const isFirst = showSpecialHighlights && showTrophies && rankInt === 1;
                                     const isSecond = showSpecialHighlights && showTrophies && rankInt === 2;
@@ -2567,6 +2573,22 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                     </div>
                                                   ) : (
                                                     <>
+                                                                                                            {/* Gate card bubble */}
+                                                      <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[120px]">
+                                                        <div className="text-[8px] text-blue-800 font-bold uppercase tracking-wider">Gate</div>
+                                                        {(() => {
+                                                          const drawVal = ath.finalDraw || ath.semiDraw || ath.quartasDraw || ath.m1Draw;
+                                                          if (!drawVal) return <span className="text-slate-300">-</span>;
+                                                          const p = parseDrawText(drawVal);
+                                                          return p ? (
+                                                            <div className="font-mono mt-0.5 text-[9px] font-bold leading-tight space-y-0.5">
+                                                              <div className="text-blue-600 font-black">B: {p.heat}</div>
+                                                              {p.lane && <div className="text-amber-600 font-bold">R: {p.lane}</div>}
+                                                            </div>
+                                                          ) : <div className="font-mono text-slate-500 mt-0.5 font-bold text-[9px]">{drawVal}</div>;
+                                                        })()}
+                                                      </div>
+
                                                       {/* Tempo card bubble */}
                                                       <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
                                                         <div className="text-[8px] text-emerald-800 font-bold uppercase tracking-wider">Tempo</div>
@@ -2578,7 +2600,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                       {/* Reação card bubble */}
                                                       <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 max-w-[80px]">
                                                         <div className="text-[8px] text-slate-400 font-bold uppercase tracking-wider">Reação</div>
-                                                        <div className="mt-0.5 font-mono text-[9px] text-slate-500">
+                                                        <div className="mt-0.5 font-mono text-[9px] font-bold text-slate-500">
                                                           {isValidTime(ath.m1Reaction) ? `${ath.m1Reaction}s` : (ath.m1Reaction || '-')}
                                                         </div>
                                                       </div>
