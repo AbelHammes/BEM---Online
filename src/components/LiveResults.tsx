@@ -494,6 +494,29 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
     return null;
   };
 
+  const hasCompletedFinalResults = (group: GroupedCategory): boolean => {
+    const finalSub = getFinalSub(group);
+    const semiSub = getSemiSub(group);
+    const quartasSub = getQuartasSub(group);
+    const motosSub = getMotosSub(group);
+
+    if (finalSub) {
+      return finalSub.data.athletes.some(ath => getNumericPlace(ath.place) !== null);
+    }
+
+    const entriesCount = motosSub ? motosSub.data.entriesCount : (group.subCategories[0]?.data.entriesCount || 0);
+
+    if (semiSub || quartasSub || entriesCount > 8) {
+      return false;
+    }
+
+    if (motosSub) {
+      return motosSub.data.athletes.some(ath => getNumericPlace(ath.place) !== null);
+    }
+
+    return false;
+  };
+
   const getPointsVal = (pts: number | string | undefined | null): number => {
     if (pts === undefined || pts === null || pts === '') return 9999;
     if (typeof pts === 'number') return pts;
@@ -1586,9 +1609,10 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                             <tbody className="divide-y divide-slate-100 bg-white">
                               {combinedAthletes.map((ath, idx) => {
                                 const rankInt = idx + 1;
-                                const isFirst = rankInt === 1;
-                                const isSecond = rankInt === 2;
-                                const isThird = rankInt === 3;
+                                const isFinalResultsReady = hasCompletedFinalResults(group);
+                                const isFirst = isFinalResultsReady && rankInt === 1;
+                                const isSecond = isFinalResultsReady && rankInt === 2;
+                                const isThird = isFinalResultsReady && rankInt === 3;
 
                                 return (
                                   <tr key={ath.plate} className="hover:bg-slate-50/50 transition-colors">
@@ -1712,9 +1736,10 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           {combinedAthletes.map((ath, idx) => {
                             const rankInt = idx + 1;
-                            const isFirst = rankInt === 1;
-                            const isSecond = rankInt === 2;
-                            const isThird = rankInt === 3;
+                            const isFinalResultsReady = hasCompletedFinalResults(group);
+                            const isFirst = isFinalResultsReady && rankInt === 1;
+                            const isSecond = isFinalResultsReady && rankInt === 2;
+                            const isThird = isFinalResultsReady && rankInt === 3;
 
                             return (
                               <div
@@ -2079,7 +2104,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         // We only show placements and rankings if there actually are numeric results published for this group
                                         const rankInt = numPlace;
                                         const isFinalPhase = isActualFinalPhase(sub.subName);
-                                        const showTrophies = (resultsMode === 'overall' || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
+                                        const hasFinalResults = hasCompletedFinalResults(group);
+                                        const showTrophies = ((resultsMode === 'overall' && hasFinalResults) || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
                                         const isFirst = showTrophies && rankInt === 1;
                                         const isSecond = showTrophies && rankInt === 2;
                                         const isThird = showTrophies && rankInt === 3;
@@ -2430,7 +2456,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     const numPlace = getNumericPlace(ath.place);
                                     const rankInt = numPlace;
                                     const isFinalPhase = isActualFinalPhase(sub.subName);
-                                    const showTrophies = (resultsMode === 'overall' || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
+                                    const hasFinalResults = hasCompletedFinalResults(group);
+                                    const showTrophies = ((resultsMode === 'overall' && hasFinalResults) || (resultsMode === 'motos' && isFinalPhase)) && hasAnyNumericPlace;
                                     const showSpecialHighlights = resultsMode !== 'draws';
                                     const isFirst = showSpecialHighlights && showTrophies && rankInt === 1;
                                     const isSecond = showSpecialHighlights && showTrophies && rankInt === 2;
