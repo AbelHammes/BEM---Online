@@ -70,12 +70,6 @@ function getNormalizedPhaseText(phase: string, filename?: string, reportType?: s
   const transLower = (phase || "").toLowerCase();
 
   // 1. Explicit checks based on filename/reportType first, as they are highly reliable indicators of the report's intent
-  if (
-    rtLower.includes("final") && !rtLower.includes("semi") && !rtLower.includes("quarta") && !rtLower.includes("quarter") && !rtLower.includes("1/4") ||
-    fnLower.includes("final") && !fnLower.includes("semi") && !fnLower.includes("quarta") && !fnLower.includes("quarter") && !fnLower.includes("1/4")
-  ) {
-    return "Final";
-  }
   if (rtLower.includes("semi") || rtLower.includes("1/2") || fnLower.includes("semi") || fnLower.includes("1/2")) {
     return "Semifinal";
   }
@@ -90,6 +84,12 @@ function getNormalizedPhaseText(phase: string, filename?: string, reportType?: s
     fnLower.includes("oitava") || fnLower.includes("1/8")
   ) {
     return "Oitavas de Final";
+  }
+  if (
+    rtLower.includes("final") ||
+    fnLower.includes("final")
+  ) {
+    return "Final";
   }
 
   // 2. Full Results check

@@ -387,10 +387,10 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
       ) {
         return 'Motos';
       }
-      if (lower === 'final' || lower.includes('final')) return 'Final';
-      if (lower.includes('semifinal') || lower === 'semi' || lower === 'sf') return 'Semifinal';
-      if (lower.includes('quarta') || lower === 'qf' || lower.includes('1/4')) return 'Quartas de Final';
+      if (lower.includes('semifinal') || lower === 'semi' || lower === 'sf' || lower.includes('1/2')) return 'Semifinal';
+      if (lower.includes('quarta') || lower === 'qf' || lower.includes('1/4') || lower.includes('quarter')) return 'Quartas de Final';
       if (lower.includes('oitava') || lower === 'of' || lower.includes('1/8')) return 'Oitavas de Final';
+      if (lower === 'final' || (lower.includes('final') && !lower.includes('semi') && !lower.includes('quarta') && !lower.includes('1/4') && !lower.includes('1/2') && !lower.includes('quarter'))) return 'Final';
       if (lower.includes('sorteio')) return 'Sorteio de Raias';
       if (lower.includes('geral') || lower.includes('overall') || lower.includes('classifica') || lower.includes('resultado')) return 'Classificação Geral';
       
