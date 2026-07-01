@@ -66,6 +66,43 @@ const friendlyTransferText = (code?: string) => {
   return `Avança de Fase (${upper})`;
 };
 
+// Helper function to de-duplicate name strings
+export function cleanDuplicateNames(firstName: string, lastName: string): { firstName: string, lastName: string } {
+  let f = (firstName || "").trim();
+  let l = (lastName || "").trim();
+  if (!f || !l) return { firstName: f, lastName: l };
+
+  const fLower = f.toLowerCase();
+  const lLower = l.toLowerCase();
+
+  // Case 1: Simple ending containment
+  if (fLower.endsWith(lLower)) {
+    const overlapIndex = fLower.length - lLower.length;
+    if (overlapIndex === 0 || fLower[overlapIndex - 1] === " ") {
+      l = "";
+    }
+  }
+
+  // Case 2: Overlapping suffix-prefix words
+  if (l !== "") {
+    const fWords = f.split(/\s+/);
+    const lWords = l.split(/\s+/);
+    let overlapCount = 0;
+    for (let i = 1; i <= Math.min(fWords.length, lWords.length); i++) {
+      const fSuffix = fWords.slice(-i).map(w => w.toLowerCase()).join(" ");
+      const lPrefix = lWords.slice(0, i).map(w => w.toLowerCase()).join(" ");
+      if (fSuffix === lPrefix) {
+        overlapCount = i;
+      }
+    }
+    if (overlapCount > 0) {
+      l = lWords.slice(overlapCount).join(" ");
+    }
+  }
+
+  return { firstName: f, lastName: l };
+}
+
 // Helper to determine if a subcategory represents the final/overall results of the race
 const isFinalResultsSub = (subName: string): boolean => {
   const nameLower = subName.toLowerCase();

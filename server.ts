@@ -262,6 +262,42 @@ function writeDB(data: any) {
 }
 
 // Keeps un-normalized names with original round/group details to avoid duplicate 1st/2nd places
+function cleanDuplicateNames(firstName: string, lastName: string): { firstName: string, lastName: string } {
+  let f = (firstName || "").trim();
+  let l = (lastName || "").trim();
+  if (!f || !l) return { firstName: f, lastName: l };
+
+  const fLower = f.toLowerCase();
+  const lLower = l.toLowerCase();
+
+  // Case 1: Simple ending containment
+  if (fLower.endsWith(lLower)) {
+    const overlapIndex = fLower.length - lLower.length;
+    if (overlapIndex === 0 || fLower[overlapIndex - 1] === " ") {
+      l = "";
+    }
+  }
+
+  // Case 2: Overlapping suffix-prefix words
+  if (l !== "") {
+    const fWords = f.split(/\s+/);
+    const lWords = l.split(/\s+/);
+    let overlapCount = 0;
+    for (let i = 1; i <= Math.min(fWords.length, lWords.length); i++) {
+      const fSuffix = fWords.slice(-i).map(w => w.toLowerCase()).join(" ");
+      const lPrefix = lWords.slice(0, i).map(w => w.toLowerCase()).join(" ");
+      if (fSuffix === lPrefix) {
+        overlapCount = i;
+      }
+    }
+    if (overlapCount > 0) {
+      l = lWords.slice(overlapCount).join(" ");
+    }
+  }
+
+  return { firstName: f, lastName: l };
+}
+
 function normalizeCategoryName(name: string): string {
   if (!name) return "";
   let norm = name.trim();
@@ -418,8 +454,9 @@ function parseBEMJson(jsonContent: any, currentState: any, filename: string) {
       const plate = plateIdx !== -1 ? row[plateIdx]?.trim() : "";
       if (!plate) continue;
 
-      const fName = fNameIdx !== -1 ? row[fNameIdx]?.trim() : "";
-      const lName = lNameIdx !== -1 ? row[lNameIdx]?.trim() : "";
+      const rawFName = fNameIdx !== -1 ? row[fNameIdx]?.trim() : "";
+      const rawLName = lNameIdx !== -1 ? row[lNameIdx]?.trim() : "";
+      const { firstName: fName, lastName: lName } = cleanDuplicateNames(rawFName, rawLName);
 
       // Extract raw places and times
       const m1Raw = m1Idx !== -1 ? row[m1Idx]?.trim() : "";
@@ -816,17 +853,19 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
       const fCompName = nameIdx !== -1 ? stripHtmlTags(r[nameIdx]) : "";
       
       // Handle "LastName, FirstName" or similar
-      let firstName = fCompName;
-      let lastName = "";
+      let rawFirstName = fCompName;
+      let rawLastName = "";
       if (fCompName.includes(",")) {
         const parts = fCompName.split(",");
-        lastName = parts[0]?.trim();
-        firstName = parts[1]?.trim();
+        rawLastName = parts[0]?.trim();
+        rawFirstName = parts[1]?.trim();
       } else if (fCompName.includes(" ")) {
         const parts = fCompName.split(" ");
-        firstName = parts[0]?.trim();
-        lastName = parts.slice(1).join(" ")?.trim();
+        rawFirstName = parts[0]?.trim();
+        rawLastName = parts.slice(1).join(" ")?.trim();
       }
+
+      const { firstName, lastName } = cleanDuplicateNames(rawFirstName, rawLastName);
 
       let rawPlace = placeIdx !== -1 ? stripHtmlTags(r[placeIdx]) : "";
       let group = "";
@@ -861,7 +900,7 @@ function parseBEMHtml(htmlContent: string, currentState: any, filename: string) 
         plate,
         firstName,
         lastName,
-        fullName: fCompName,
+        fullName: firstName && lastName ? `${firstName} ${lastName}` : (firstName || lastName || fCompName),
         club: clubIdx !== -1 ? stripHtmlTags(r[clubIdx]) : "Independente",
         state: stateIdx !== -1 ? stripHtmlTags(r[stateIdx]) : "RS",
         country: "BRA",

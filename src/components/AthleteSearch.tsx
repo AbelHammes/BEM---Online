@@ -65,7 +65,6 @@ const getBaseCategoryName = (fullName: string): string => {
 export default function AthleteSearch({ event }: AthleteSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
-  const [selectedClub, setSelectedClub] = useState('ALL');
   const [selectedState, setSelectedState] = useState('ALL');
   const [showTransponders, setShowTransponders] = useState(true);
 
@@ -82,26 +81,21 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
     return Array.from(categories).sort();
   }, [event]);
 
-  // Compile unique lists of Clubs and States for filtration dropdowns
-  const { allClubs, allStates } = useMemo(() => {
-    const clubs = new Set<string>();
+  // Compile unique list of States for filtration dropdowns
+  const allStates = useMemo(() => {
     const states = new Set<string>();
     
     if (event && event.categories) {
       event.categories.forEach(cat => {
         if (cat && cat.athletes) {
           cat.athletes.forEach(ath => {
-            if (ath && ath.club) clubs.add(ath.club);
             if (ath && ath.state) states.add(ath.state);
           });
         }
       });
     }
 
-    return {
-      allClubs: Array.from(clubs).sort(),
-      allStates: Array.from(states).sort()
-    };
+    return Array.from(states).sort();
   }, [event]);
 
   // Combined Searching/Filtering logic
@@ -125,11 +119,6 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
         const plate = ath.plate ? ath.plate.toString().trim() : '';
         if (!plate) return;
 
-        // Filter by Club
-        if (selectedClub !== 'ALL' && ath.club !== selectedClub) {
-          return;
-        }
-
         // Filter by State
         if (selectedState !== 'ALL' && ath.state !== selectedState) {
           return;
@@ -140,11 +129,10 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
         const matchesPlate = plate.toLowerCase().includes(searchLower);
         const matchesName = (ath.fullName || '').toLowerCase().includes(searchLower) || 
                             `${ath.firstName || ''} ${ath.lastName || ''}`.toLowerCase().includes(searchLower);
-        const matchesClub = (ath.club || '').toLowerCase().includes(searchLower);
         const matchesUci = (ath.uciId || '').toLowerCase().includes(searchLower);
         const matchesTransponder = (ath.transponder || '').toLowerCase().includes(searchLower);
 
-        if (!searchTerm || matchesPlate || matchesName || matchesClub || matchesUci || matchesTransponder) {
+        if (!searchTerm || matchesPlate || matchesName || matchesUci || matchesTransponder) {
           if (!seenPlates.has(plate)) {
             seenPlates.add(plate);
             results.push({
@@ -157,7 +145,7 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
     });
 
     return results;
-  }, [event, searchTerm, selectedCategory, selectedClub, selectedState]);
+  }, [event, searchTerm, selectedCategory, selectedState]);
 
   if (!event || !event.categories || event.categories.length === 0) {
     return (
@@ -186,7 +174,7 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
       </div>
 
       {/* Advanced Filter Panel */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-5">
         <div className="relative">
           <Search size={15} className="absolute left-3 top-3.5 text-gray-400" />
           <input
@@ -207,19 +195,6 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
             <option value="ALL">Todas as Categorias</option>
             {uniqueCategories.map((catName) => (
               <option key={catName} value={catName}>{catName}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <select
-            value={selectedClub}
-            onChange={(e) => setSelectedClub(e.target.value)}
-            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:ring-1 focus:ring-emerald-500 transition-all outline-none"
-          >
-            <option value="ALL">Todos os Clubes / Equipes</option>
-            {allClubs.map((club) => (
-              <option key={club} value={club}>{club}</option>
             ))}
           </select>
         </div>

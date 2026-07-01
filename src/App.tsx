@@ -240,10 +240,84 @@ export default function App() {
     }
   };
 
-  const notificationsCount = useMemo(() => {
-    if (!raceState) return 0;
-    return raceState.notifications.length;
+  const cleanState = useMemo<RaceState | null>(() => {
+    if (!raceState || !raceState.event || !raceState.event.categories) return raceState;
+
+    const cleanDuplicateNamesLocal = (firstName: string, lastName: string) => {
+      let f = (firstName || "").trim();
+      let l = (lastName || "").trim();
+      if (!f || !l) return { firstName: f, lastName: l };
+
+      const fLower = f.toLowerCase();
+      const lLower = l.toLowerCase();
+
+      // Case 1: Simple ending containment
+      if (fLower.endsWith(lLower)) {
+        const overlapIndex = fLower.length - lLower.length;
+        if (overlapIndex === 0 || fLower[overlapIndex - 1] === " ") {
+          l = "";
+        }
+      }
+
+      // Case 2: Overlapping suffix-prefix words
+      if (l !== "") {
+        const fWords = f.split(/\s+/);
+        const lWords = l.split(/\s+/);
+        let overlapCount = 0;
+        for (let i = 1; i <= Math.min(fWords.length, lWords.length); i++) {
+          const fSuffix = fWords.slice(-i).map(w => w.toLowerCase()).join(" ");
+          const lPrefix = lWords.slice(0, i).map(w => w.toLowerCase()).join(" ");
+          if (fSuffix === lPrefix) {
+            overlapCount = i;
+          }
+        }
+        if (overlapCount > 0) {
+          l = lWords.slice(overlapCount).join(" ");
+        }
+      }
+
+      return { firstName: f, lastName: l };
+    };
+
+    return {
+      ...raceState,
+      event: {
+        ...raceState.event,
+        categories: raceState.event.categories.map(cat => ({
+          ...cat,
+          athletes: cat.athletes.map(ath => {
+            const { firstName, lastName } = cleanDuplicateNamesLocal(ath.firstName, ath.lastName);
+            return {
+              ...ath,
+              firstName,
+              lastName,
+              fullName: firstName && lastName ? `${firstName} ${lastName}` : (firstName || lastName || ath.fullName)
+            };
+          }),
+          subCategories: cat.subCategories.map(sub => ({
+            ...sub,
+            data: {
+              ...sub.data,
+              athletes: sub.data.athletes.map(ath => {
+                const { firstName, lastName } = cleanDuplicateNamesLocal(ath.firstName, ath.lastName);
+                return {
+                  ...ath,
+                  firstName,
+                  lastName,
+                  fullName: firstName && lastName ? `${firstName} ${lastName}` : (firstName || lastName || ath.fullName)
+                };
+              })
+            }
+          }))
+        }))
+      }
+    };
   }, [raceState]);
+
+  const notificationsCount = useMemo(() => {
+    if (!cleanState) return 0;
+    return cleanState.notifications.length;
+  }, [cleanState]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
@@ -385,7 +459,7 @@ export default function App() {
 
       {/* Main Context container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 overflow-y-auto">
-        {!raceState ? (
+        {!cleanState ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <RefreshCw className="animate-spin text-emerald-600 mb-3" size={32} />
             <h4 className="font-bold text-gray-800 text-sm">Carregando Resultados Oficiais de Cuiabá...</h4>
@@ -405,7 +479,7 @@ export default function App() {
                 ${activeTab === 'results' ? 'lg:col-span-12 block' : ''}
                 ${(activeTab !== 'dashboard' && activeTab !== 'results') ? 'hidden' : ''}
               `}>
-                <LiveResults event={raceState.event} isDashboard={activeTab === 'dashboard'} />
+                <LiveResults event={cleanState.event} isDashboard={activeTab === 'dashboard'} />
               </div>
 
               {/* Sidebar Column or Secondary full-width columns */}
@@ -416,13 +490,13 @@ export default function App() {
                 
                 {/* Athlete Search Component */}
                 <div className={activeTab === 'athletes' ? 'block' : 'hidden'}>
-                  <AthleteSearch event={raceState.event} />
+                  <AthleteSearch event={cleanState.event} />
                 </div>
 
                 {/* Notifications Feed Component */}
                 <div className={activeTab === 'dashboard' || activeTab === 'notifications' ? 'block' : 'hidden'}>
                   <NotificationFeed
-                    notifications={raceState.notifications}
+                    notifications={cleanState.notifications}
                     isOffline={isOfflineMode}
                     onToggleOffline={handleToggleOffline}
                     onRefresh={fetchRaceState}
@@ -439,7 +513,7 @@ export default function App() {
                       Cronograma Oficial do Campeonato
                     </h4>
                     <div className="space-y-4 relative pl-3 border-l border-gray-100 py-1 text-xxs">
-                      {raceState.schedule.map((item) => {
+                      {cleanState.schedule.map((item) => {
                         const isCompleted = item.status === 'completed';
                         const isOngoing = item.status === 'ongoing';
                         const isDelayed = item.status === 'delayed';
@@ -486,7 +560,7 @@ export default function App() {
                 {/* Pilot Profile Module */}
                 <div className={activeTab === 'dashboard' || activeTab === 'pilot' ? 'block' : 'hidden'}>
                   <PilotProfile
-                    event={raceState.event}
+                    event={cleanState.event}
                     user={currentUser}
                     onLogin={handleLogin}
                     onLogout={handleLogout}
@@ -497,8 +571,8 @@ export default function App() {
                 {/* Organizer Management Module */}
                 <div className={activeTab === 'manager' ? 'block' : 'hidden'}>
                   <ManagerDashboard
-                    event={raceState.event}
-                    schedule={raceState.schedule}
+                    event={cleanState.event}
+                    schedule={cleanState.schedule}
                     user={currentUser}
                     onLogin={handleLogin}
                     onLogout={handleLogout}
