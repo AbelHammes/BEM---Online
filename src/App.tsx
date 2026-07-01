@@ -293,22 +293,7 @@ export default function App() {
               lastName,
               fullName: firstName && lastName ? `${firstName} ${lastName}` : (firstName || lastName || ath.fullName)
             };
-          }),
-          subCategories: cat.subCategories.map(sub => ({
-            ...sub,
-            data: {
-              ...sub.data,
-              athletes: sub.data.athletes.map(ath => {
-                const { firstName, lastName } = cleanDuplicateNamesLocal(ath.firstName, ath.lastName);
-                return {
-                  ...ath,
-                  firstName,
-                  lastName,
-                  fullName: firstName && lastName ? `${firstName} ${lastName}` : (firstName || lastName || ath.fullName)
-                };
-              })
-            }
-          }))
+          })
         }))
       }
     };
