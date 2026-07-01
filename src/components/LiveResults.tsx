@@ -1040,6 +1040,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
             const quartasSub = getQuartasSub(group);
             const semiSub = getSemiSub(group);
             const finalSub = getFinalSub(group);
+            const overallSub = group.subCategories.find(sub => sub.subName === "Classificação Geral");
 
             const hasMotos = !!motosSub;
             const hasQuartas = !!quartasSub;
@@ -1188,10 +1189,6 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
               }
 
               let list = Object.values(athletesMap);
-
-              const overallSub = group.subCategories.find(sub => 
-                sub.subName === "Classificação Geral"
-              );
 
               if (overallSub) {
                 // If we have overall sub, let's sort the list to match the exact order of overallSub.data.athletes
@@ -1604,22 +1601,31 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                 <th className="p-2 sm:p-3 w-12 sm:w-16 text-center text-[10px] sm:text-xs">Placa</th>
                                 <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs">Piloto</th>
                                 <th className="p-2 sm:p-3 text-left text-[10px] sm:text-xs hidden md:table-cell">Clube / Associação</th>
-                                {resultsMode !== 'overall' && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Motos (M1/M2/M3)</th>}
                                 <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-emerald-800 font-black bg-emerald-50/10">
-                                  {resultsMode === 'overall' ? 'Pontos Total' : 'M-PTS'}
+                                  Pontos Motos
                                 </th>
-                                {resultsMode !== 'overall' && hasQuartas && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Quartas</th>}
-                                {resultsMode !== 'overall' && hasSemi && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Semi</th>}
-                                {resultsMode !== 'overall' && hasFinal && <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-amber-700 font-black">Final</th>}
+                                {(hasQuartas || (overallSub && overallSub.data.athletes.some(a => a.fullQuartas))) && (
+                                  <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Quartas</th>
+                                )}
+                                {(hasSemi || (overallSub && overallSub.data.athletes.some(a => a.fullSemi))) && (
+                                  <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs">Semi</th>
+                                )}
+                                {(hasFinal || (overallSub && overallSub.data.athletes.some(a => a.fullFinal))) && (
+                                  <th className="p-2 sm:p-3 text-center text-[10px] sm:text-xs text-amber-700 font-black">Final</th>
+                                )}
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
                               {combinedAthletes.map((ath, idx) => {
                                 const rankInt = idx + 1;
-                                const isFinalResultsReady = hasCompletedFinalResults(group);
+                                const isFinalResultsReady = hasCompletedFinalResults(group) || (overallSub && overallSub.data.athletes.some(a => a.fullFinal && a.fullFinal.trim() !== "" && a.fullFinal !== "-"));
                                 const isFirst = isFinalResultsReady && rankInt === 1;
                                 const isSecond = isFinalResultsReady && rankInt === 2;
                                 const isThird = isFinalResultsReady && rankInt === 3;
+
+                                const showQuartas = hasQuartas || (overallSub && overallSub.data.athletes.some(a => a.fullQuartas));
+                                const showSemi = hasSemi || (overallSub && overallSub.data.athletes.some(a => a.fullSemi));
+                                const showFinal = hasFinal || (overallSub && overallSub.data.athletes.some(a => a.fullFinal));
 
                                 return (
                                   <tr key={ath.plate} className="hover:bg-slate-50/50 transition-colors">
@@ -1678,26 +1684,19 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                       </div>
                                     </td>
 
-                                    {/* Motos (M1/M2/M3) */}
-                                    {resultsMode !== 'overall' && (
-                                      <td className="p-2 sm:p-3 text-center font-semibold font-mono text-slate-700">
-                                        {ath.m1Place || ath.m2Place || ath.m3Place ? (
-                                          `${ath.m1Place || '-'} / ${ath.m2Place || '-'} / ${ath.m3Place || '-'}`
-                                        ) : (
-                                          <span className="text-slate-300">-</span>
-                                        )}
-                                      </td>
-                                    )}
-
                                     {/* M-PTS */}
-                                    <td className="p-2 sm:p-3 text-center font-black text-emerald-700 bg-emerald-50/20 text-xs">
-                                      {resultsMode === 'overall' ? (ath.totalPoints ?? '-') : (ath.mpts !== undefined && ath.mpts !== null ? ath.mpts : '-')}
+                                    <td className="p-2 sm:p-3 text-center font-black text-emerald-700 bg-emerald-50/20 text-xs font-mono">
+                                      {ath.mpts !== undefined && ath.mpts !== null ? ath.mpts : '-'}
                                     </td>
 
                                     {/* Quartas */}
-                                    {resultsMode !== 'overall' && hasQuartas && (
+                                    {showQuartas && (
                                       <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
-                                        {ath.quartasPlace ? (
+                                        {ath.fullQuartas ? (
+                                          <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
+                                            {ath.fullQuartas}
+                                          </span>
+                                        ) : ath.quartasPlace ? (
                                           <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
                                             {ath.quartasPlace}º
                                           </span>
@@ -1708,9 +1707,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     )}
 
                                     {/* Semi */}
-                                    {resultsMode !== 'overall' && hasSemi && (
+                                    {showSemi && (
                                       <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
-                                        {ath.semiPlace ? (
+                                        {ath.fullSemi ? (
+                                          <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
+                                            {ath.fullSemi}
+                                          </span>
+                                        ) : ath.semiPlace ? (
                                           <span className="px-2 py-0.5 bg-slate-100 rounded text-xs">
                                             {ath.semiPlace}º
                                           </span>
@@ -1721,9 +1724,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     )}
 
                                     {/* Final */}
-                                    {resultsMode !== 'overall' && hasFinal && (
+                                    {showFinal && (
                                       <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-700">
-                                        {ath.finalPlace ? (
+                                        {ath.fullFinal ? (
+                                          <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-xs font-black">
+                                            {ath.fullFinal}
+                                          </span>
+                                        ) : ath.finalPlace ? (
                                           <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-xs font-black">
                                             {ath.finalPlace}º
                                           </span>
@@ -1800,8 +1807,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                 </div>
 
                                 {/* Card Bottom: Results Bubbles across ALL Phases */}
-                                {resultsMode !== 'overall' ? (
-                                  <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 pl-1.5 bg-slate-50/50 p-2 rounded-xl text-[10px]">
+                                <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-1.5 pl-1.5 bg-slate-50/50 p-2 rounded-xl text-[10px]">
                                   {/* Motos Bubble */}
                                   <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 min-w-[50px]">
                                     <div className="text-[7px] text-slate-400 font-bold uppercase tracking-wider">Motos</div>
@@ -1814,41 +1820,35 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                   </div>
 
                                   {/* Quartas Bubble */}
-                                  {hasQuartas && (
+                                  {(hasQuartas || (overallSub && overallSub.data.athletes.some(a => a.fullQuartas))) && (
                                     <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 min-w-[50px]">
                                       <div className="text-[7px] text-slate-400 font-bold uppercase tracking-wider">Quartas</div>
                                       <div className="font-mono mt-0.5 font-extrabold text-slate-900 leading-normal">
-                                        {ath.quartasPlace ? `${ath.quartasPlace}º` : '-'}
+                                        {ath.fullQuartas || (ath.quartasPlace ? `${ath.quartasPlace}º` : '-')}
                                       </div>
                                     </div>
                                   )}
 
                                   {/* Semi Bubble */}
-                                  {hasSemi && (
+                                  {(hasSemi || (overallSub && overallSub.data.athletes.some(a => a.fullSemi))) && (
                                     <div className="bg-white border border-slate-100 p-1.5 rounded-lg text-center flex-1 min-w-[50px]">
                                       <div className="text-[7px] text-slate-400 font-bold uppercase tracking-wider">Semi</div>
                                       <div className="font-mono mt-0.5 font-extrabold text-slate-900 leading-normal">
-                                        {ath.semiPlace ? `${ath.semiPlace}º` : '-'}
+                                        {ath.fullSemi || (ath.semiPlace ? `${ath.semiPlace}º` : '-')}
                                       </div>
                                     </div>
                                   )}
 
                                   {/* Final Bubble */}
-                                  {hasFinal && (
+                                  {(hasFinal || (overallSub && overallSub.data.athletes.some(a => a.fullFinal))) && (
                                     <div className="bg-amber-50/50 border border-amber-200 p-1.5 rounded-lg text-center flex-1 min-w-[50px]">
                                       <div className="text-[7px] text-amber-700 font-bold uppercase tracking-wider">Final</div>
                                       <div className="font-mono mt-0.5 font-black text-amber-800 leading-normal">
-                                        {ath.finalPlace ? `${ath.finalPlace}º` : '-'}
+                                        {ath.fullFinal || (ath.finalPlace ? `${ath.finalPlace}º` : '-')}
                                       </div>
                                     </div>
                                   )}
                                 </div>
-                                ) : (
-                                  <div className="pt-2 border-t border-slate-100 flex items-center justify-between pl-1.5 bg-emerald-50/20 p-2 rounded-xl text-[10px]">
-                                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[8px]">{resultsMode === 'overall' ? 'Pontos Totais' : 'Pontos Geral'}</span>
-                                    <span className="font-mono font-black text-xs text-emerald-700">{resultsMode === 'overall' ? `${ath.totalPoints ?? '-'} PTS` : (ath.mpts !== undefined && ath.mpts !== null ? `${ath.mpts} PTS` : '-')}</span>
-                                  </div>
-                                )}
                               </div>
                             );
                           })}
