@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   Bookmark,
   Users,
-  Layers
+  Layers,
+  Download
 } from 'lucide-react';
 
 interface LiveResultsProps {
@@ -964,6 +965,65 @@ export default function LiveResults({ event, isDashboard = false, onSelectAthlet
     }
   };
 
+  // Export current view of results as CSV
+  const handleExportCSV = () => {
+    // Collect data to export
+    let csvContent = "\uFEFF"; // UTF-8 BOM for Excel compatibility to render accents properly
+    
+    // Header
+    const headers = ["Categoria", "Posição", "Placa", "Nome Completo", "Clube", "UF", "Moto 1", "Moto 2", "Moto 3"];
+    if (resultsMode === 'overall') {
+      headers.push("Pontos Totais");
+    } else if (resultsMode === 'motos') {
+      headers.push("M1 Tempo/Reação", "M2 Tempo/Reação", "M3 Tempo/Reação");
+    }
+    csvContent += headers.map(h => `"${h}"`).join(";") + "\n";
+    
+    displayedGroupedCategories.forEach(group => {
+      group.subCategories.forEach(sub => {
+        const cat = sub.data;
+        const sortedAthletes = sortGroupAthletes(cat.athletes, sub.subName, resultsMode);
+        
+        sortedAthletes.forEach(ath => {
+          const row: (string | number)[] = [
+            `${cat.categoryName} ${sub.subName ? `- ${sub.subName}` : ''}`,
+            ath.place !== undefined && ath.place !== null ? ath.place : '-',
+            `#${ath.plate}`,
+            `${ath.firstName || ''} ${ath.lastName || ''}`.trim(),
+            ath.club || 'Avulso',
+            ath.state || 'BRA',
+            resultsMode === 'draws' ? (ath.m1Draw || '-') : (ath.m1Place !== undefined && ath.m1Place !== null ? ath.m1Place : '-'),
+            resultsMode === 'draws' ? (ath.m2Draw || '-') : (ath.m2Place !== undefined && ath.m2Place !== null ? ath.m2Place : '-'),
+            resultsMode === 'draws' ? (ath.m3Draw || '-') : (ath.m3Place !== undefined && ath.m3Place !== null ? ath.m3Place : '-')
+          ];
+          
+          if (resultsMode === 'overall') {
+            row.push(ath.totalPoints !== undefined && ath.totalPoints !== null ? ath.totalPoints : '-');
+          } else if (resultsMode === 'motos') {
+            row.push(
+              `${ath.m1Time ? `${ath.m1Time}s` : '-'} ${ath.m1Reaction ? `[R: ${ath.m1Reaction}s]` : ''}`.trim(),
+              `${ath.m2Time ? `${ath.m2Time}s` : '-'} ${ath.m2Reaction ? `[R: ${ath.m2Reaction}s]` : ''}`.trim(),
+              `${ath.m3Time ? `${ath.m3Time}s` : '-'} ${ath.m3Reaction ? `[R: ${ath.m3Reaction}s]` : ''}`.trim()
+            );
+          }
+          
+          csvContent += row.map(val => `"${val.toString().replace(/"/g, '""')}"`).join(";") + "\n";
+        });
+      });
+    });
+    
+    // Create download link using blob for absolute reliability
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `relatorio_bem_${resultsMode}_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div id="live-results-section" className="space-y-6">
       <iframe id="ifmcontentstoprint" style={{ height: '0px', width: '0px', position: 'absolute' }}></iframe>
@@ -1136,6 +1196,15 @@ export default function LiveResults({ event, isDashboard = false, onSelectAthlet
             >
               <Printer size={14} />
               Exportar PDF / Imprimir
+            </button>
+
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold cursor-pointer transition-colors border border-emerald-200 shadow-xxs"
+              title="Baixar planilha Excel / CSV dos resultados atuais"
+            >
+              <Download size={14} />
+              Exportar Planilha (CSV)
             </button>
           </div>
 
@@ -1922,7 +1991,8 @@ export default function LiveResults({ event, isDashboard = false, onSelectAthlet
                             return (
                               <div
                                 key={ath.plate}
-                                className={`p-4 rounded-2xl border transition-all shadow-xxs flex flex-col justify-between gap-3 relative overflow-hidden ${
+                                onClick={() => onSelectAthlete?.(ath, group.baseName)}
+                                className={`p-4 rounded-2xl border cursor-pointer hover:shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between gap-3 relative overflow-hidden ${
                                   isFirst ? 'bg-gradient-to-br from-yellow-50/40 via-white to-white border-yellow-300/60 ring-1 ring-yellow-400/10' :
                                   isSecond ? 'bg-gradient-to-br from-slate-50/40 via-white to-white border-slate-300/60' :
                                   isThird ? 'bg-gradient-to-br from-amber-50/40 via-white to-white border-amber-300/60' :
@@ -2099,7 +2169,9 @@ export default function LiveResults({ event, isDashboard = false, onSelectAthlet
                               {advancedPilots.map((ath) => (
                                 <div 
                                   key={ath.plate} 
-                                  className="flex items-center gap-2 bg-white border border-emerald-200/60 rounded-lg px-2.5 py-1.5 text-xxs font-semibold shadow-xxs"
+                                  onClick={() => onSelectAthlete?.(ath, group.baseName)}
+                                  className="flex items-center gap-2 bg-white border border-emerald-200/60 hover:border-emerald-400 hover:shadow-xs cursor-pointer rounded-lg px-2.5 py-1.5 text-xxs font-semibold shadow-xxs transition-all"
+                                  title="Clique para abrir o painel do atleta"
                                 >
                                   <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-mono text-[9px] font-black shrink-0">
                                     #{ath.plate}

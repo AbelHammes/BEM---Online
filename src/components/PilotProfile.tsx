@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { EventData, Athlete, UserProfile } from '../types';
 import { User, LogIn, Award, Timer, Shield, LogOut, TrendingUp, CheckCircle, Navigation } from 'lucide-react';
+import { getMergedAthlete } from '../utils';
 
 interface PilotProfileProps {
   event: EventData;
@@ -40,15 +41,19 @@ export default function PilotProfile({
   const pilotData = React.useMemo(() => {
     if (!user || user.role !== 'pilot' || !user.pilotPlate) return null;
     
+    let foundCatName = '';
     for (const cat of event.categories) {
       const p = cat.athletes.find(a => a.plate === user.pilotPlate);
       if (p) {
-        return {
-          athlete: p,
-          categoryName: cat.categoryName
-        };
+        foundCatName = cat.categoryName;
+        break;
       }
     }
+    
+    if (foundCatName) {
+      return getMergedAthlete(user.pilotPlate, foundCatName, event);
+    }
+    
     return null;
   }, [user, event]);
 

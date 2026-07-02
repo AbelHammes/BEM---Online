@@ -24,6 +24,7 @@ import AthleteSearch from './components/AthleteSearch';
 import NotificationFeed from './components/NotificationFeed';
 import PilotProfile from './components/PilotProfile';
 import ManagerDashboard from './components/ManagerDashboard';
+import { getMergedAthlete } from './utils';
 
 export default function App() {
   // Check if URL contains ?admin=true to reveal the Organizador (CBC) tab
@@ -44,6 +45,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loginError, setLoginError] = useState<string>('');
   const [selectedAthlete, setSelectedAthlete] = useState<{ athlete: Athlete; categoryName: string } | null>(null);
+
+  const handleSelectAthlete = (athlete: Athlete, categoryName: string) => {
+    const merged = getMergedAthlete(athlete.plate, categoryName, cleanState?.event);
+    setSelectedAthlete(merged || { athlete, categoryName });
+  };
 
   // Auto-load state from local database if online, or local cache if offline
   const fetchRaceState = async () => {
@@ -469,7 +475,7 @@ export default function App() {
                 <LiveResults 
                   event={cleanState.event} 
                   isDashboard={activeTab === 'dashboard'} 
-                  onSelectAthlete={(athlete, categoryName) => setSelectedAthlete({ athlete, categoryName })}
+                  onSelectAthlete={handleSelectAthlete}
                 />
               </div>
 
@@ -483,7 +489,7 @@ export default function App() {
                 <div className={activeTab === 'athletes' ? 'block' : 'hidden'}>
                   <AthleteSearch 
                     event={cleanState.event} 
-                    onSelectAthlete={(athlete, categoryName) => setSelectedAthlete({ athlete, categoryName })}
+                    onSelectAthlete={handleSelectAthlete}
                   />
                 </div>
 

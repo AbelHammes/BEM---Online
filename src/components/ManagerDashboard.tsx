@@ -70,6 +70,73 @@ export default function ManagerDashboard({
     setTimeout(() => setCopiedType(null), 2000);
   };
 
+  // State variables for robust script downloading and clipboard copying
+  const [showScriptCode, setShowScriptCode] = useState(false);
+  const [scriptCode, setScriptCode] = useState('');
+  const [scriptLoading, setScriptLoading] = useState(false);
+  const [scriptCopySuccess, setScriptCopySuccess] = useState(false);
+  const [downloadingScript, setDownloadingScript] = useState(false);
+
+  const fetchScriptCode = async () => {
+    if (scriptCode) return scriptCode;
+    try {
+      setScriptLoading(true);
+      const res = await fetch('/api/sync-script');
+      if (res.ok) {
+        const text = await res.text();
+        setScriptCode(text);
+        return text;
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setScriptLoading(false);
+    }
+    return '';
+  };
+
+  const handleCopyScriptToClipboard = async () => {
+    const code = await fetchScriptCode();
+    if (!code) {
+      alert('Não foi possível obter o código do script no momento.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(code);
+      setScriptCopySuccess(true);
+      setTimeout(() => setScriptCopySuccess(false), 3000);
+    } catch (err) {
+      // Fallback if clipboard-write is blocked in iframe sandbox
+      alert('Seu navegador bloqueou a cópia automática. Você pode selecionar e copiar o código ativando a visualização abaixo!');
+      setShowScriptCode(true);
+    }
+  };
+
+  const handleDownloadScriptBlob = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    try {
+      setDownloadingScript(true);
+      const code = await fetchScriptCode();
+      if (!code) throw new Error('Não foi possível obter o script.');
+      
+      const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const tempLink = document.createElement('a');
+      tempLink.href = url;
+      tempLink.setAttribute('download', 'sync_bem.ps1');
+      document.body.appendChild(tempLink);
+      tempLink.click();
+      document.body.removeChild(tempLink);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      // Fallback: direct download using target="_blank"
+      window.open('/api/sync-script', '_blank');
+    } finally {
+      setDownloadingScript(false);
+    }
+  };
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -449,15 +516,59 @@ export default function ManagerDashboard({
               Gere sincronia instantânea entre o computador do BEM e a internet. Nosso script PowerShell monitora recursivamente a pasta <strong>C:\SISTEMA_BEM\Resultados</strong> e avisa o servidor sobre relatórios criados.
             </p>
 
-            <a
-              id="download-sync-script"
-              href="/api/sync-script"
-              download="sync_bem.ps1"
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer text-xs font-bold shadow-sm"
-            >
-              <Download size={14} />
-              Baixar Script Sincronizador (.ps1)
-            </a>
+            <div className="space-y-2">
+              <button
+                onClick={handleDownloadScriptBlob}
+                disabled={downloadingScript}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors cursor-pointer text-xs font-bold shadow-sm disabled:opacity-50"
+              >
+                <Download size={14} />
+                {downloadingScript ? 'Baixando...' : 'Baixar Script Sincronizador (.ps1)'}
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleCopyScriptToClipboard}
+                  className="flex items-center justify-center gap-1.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer text-xxs font-bold"
+                >
+                  <Copy size={12} />
+                  {scriptCopySuccess ? 'Copiado!' : 'Copiar Código'}
+                </button>
+                <button
+                  onClick={async () => {
+                    await fetchScriptCode();
+                    setShowScriptCode(!showScriptCode);
+                  }}
+                  className="flex items-center justify-center gap-1.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors cursor-pointer text-xxs font-bold"
+                >
+                  <Eye size={12} />
+                  {showScriptCode ? 'Ocultar Código' : 'Visualizar Código'}
+                </button>
+              </div>
+            </div>
+
+            {/* Script Code Preview block */}
+            {showScriptCode && (
+              <div className="mt-3 p-3 bg-slate-950 rounded-lg border border-slate-800 text-[10px] text-emerald-400 font-mono max-h-48 overflow-y-auto relative">
+                {scriptLoading ? (
+                  <div className="flex items-center gap-2 justify-center py-4">
+                    <RefreshCw size={14} className="animate-spin text-slate-400" />
+                    <span className="text-slate-400">Carregando código...</span>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleCopyScriptToClipboard}
+                      className="absolute right-2 top-2 bg-slate-800 hover:bg-slate-700 text-slate-300 p-1 rounded hover:text-white transition-colors"
+                      title="Copiar Código"
+                    >
+                      <Copy size={12} />
+                    </button>
+                    <pre className="whitespace-pre-wrap select-all pr-6">{scriptCode}</pre>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="mt-4 pt-3 border-t border-gray-100 text-xxs text-gray-500 space-y-2">
               <div><strong className="text-gray-700">Como usar no Computador Oficial:</strong></div>
