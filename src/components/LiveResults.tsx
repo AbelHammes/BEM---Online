@@ -25,6 +25,7 @@ import {
 interface LiveResultsProps {
   event: EventData;
   isDashboard?: boolean;
+  onSelectAthlete?: (athlete: Athlete, categoryName: string) => void;
 }
 
 // Check if a time string is actual results/timed
@@ -237,6 +238,17 @@ export function cleanDuplicateNames(firstName: string, lastName: string): { firs
 const isFinalResultsSub = (subName: string): boolean => {
   const nameLower = subName.toLowerCase();
   
+  if (
+    nameLower.includes('semi') ||
+    nameLower.includes('quarta') ||
+    nameLower.includes('oitava') ||
+    nameLower.includes('1/2') ||
+    nameLower.includes('1/4') ||
+    nameLower.includes('1/8')
+  ) {
+    return false;
+  }
+
   if (
     nameLower.includes('geral') ||
     nameLower.includes('classifica') ||
@@ -496,7 +508,7 @@ const getSubFingerprint = (sub: any): string => {
   return fingerprintParts.sort().join('|');
 };
 
-export default function LiveResults({ event, isDashboard = false }: LiveResultsProps) {
+export default function LiveResults({ event, isDashboard = false, onSelectAthlete }: LiveResultsProps) {
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [resultsMode, setResultsMode] = useState<'overall' | 'motos' | 'draws' | 'entries'>('overall');
   const [viewLayout, setViewLayout] = useState<'table' | 'cards'>('table');
@@ -1519,7 +1531,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'MOTOS' }))}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1 border ${
                           activeSub === 'MOTOS'
-                            ? 'bg-emerald-850 text-white border-emerald-900 shadow-sm'
+                            ? 'bg-emerald-800 text-white border-emerald-900 shadow-sm'
                             : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'
                         }`}
                       >
@@ -1533,7 +1545,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'QUARTAS' }))}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1 border ${
                           activeSub === 'QUARTAS'
-                            ? 'bg-emerald-850 text-white border-emerald-900 shadow-sm'
+                            ? 'bg-emerald-800 text-white border-emerald-900 shadow-sm'
                             : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'
                         }`}
                       >
@@ -1547,7 +1559,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                         onClick={() => setActiveSubCategoryMap(prev => ({ ...prev, [group.baseName]: 'SEMI' }))}
                         className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold cursor-pointer transition-all flex items-center gap-1 border ${
                           activeSub === 'SEMI'
-                            ? 'bg-emerald-850 text-white border-emerald-900 shadow-sm'
+                            ? 'bg-emerald-800 text-white border-emerald-900 shadow-sm'
                             : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200'
                         }`}
                       >
@@ -1617,7 +1629,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                 })
                                 .sort((a, b) => (a.firstName + ' ' + a.lastName).localeCompare(b.firstName + ' ' + b.lastName))
                                 .map((ath, idx) => (
-                                  <tr key={ath.plate} className="hover:bg-slate-50/50 transition-colors">
+                                  <tr 
+                                    key={ath.plate} 
+                                    onClick={() => onSelectAthlete?.(ath, group.baseName)}
+                                    className="hover:bg-emerald-50/30 cursor-pointer transition-colors"
+                                    title="Clique para abrir o painel do atleta"
+                                  >
                                     {/* Row Number */}
                                     <td className="p-2 sm:p-3 text-center font-mono font-bold text-slate-400">
                                       {idx + 1}
@@ -1684,7 +1701,9 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                             .map((ath, idx) => (
                               <div
                                 key={ath.plate}
-                                className="p-4 rounded-2xl border border-slate-100 bg-white hover:border-slate-200 transition-all shadow-xxs flex flex-col justify-between gap-3 relative overflow-hidden"
+                                onClick={() => onSelectAthlete?.(ath, group.baseName)}
+                                className="p-4 rounded-2xl border border-slate-100 bg-white hover:border-emerald-300 cursor-pointer hover:shadow-xs transition-all flex flex-col justify-between gap-3 relative overflow-hidden"
+                                title="Clique para abrir o painel do atleta"
                               >
                                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-200"></div>
                                 <div className="space-y-2.5 pl-1.5">
@@ -1768,7 +1787,12 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                 const showFinal = hasFinal || (overallSub && overallSub.data.athletes.some(a => a.fullFinal));
 
                                 return (
-                                  <tr key={ath.plate} className="hover:bg-slate-50/50 transition-colors">
+                                  <tr 
+                                    key={ath.plate} 
+                                    onClick={() => onSelectAthlete?.(ath, group.baseName)}
+                                    className="hover:bg-emerald-50/30 cursor-pointer transition-colors"
+                                    title="Clique para abrir o painel do atleta"
+                                  >
                                     {/* Rank */}
                                     <td className="p-2 sm:p-3 text-center font-bold">
                                       {isFirst ? (
@@ -2018,6 +2042,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
 
                     // Filter out athletes who did not participate/advance to this single-run phase (Quartas, Semis, Finals)
                     const isSingleRun = isSingleRunPhase(sub.subName);
+                    const isQuartasOrSemis = isSingleRun && (
+                      sub.subName.toLowerCase().includes('quarta') ||
+                      sub.subName.toLowerCase().includes('quarter') ||
+                      sub.subName.toLowerCase().includes('1/4') ||
+                      sub.subName.toLowerCase().includes('semi') ||
+                      sub.subName.toLowerCase().includes('1/2')
+                    );
                     if (isSingleRun && resultsMode === 'motos') {
                       filteredAthletesInCat = filteredAthletesInCat.filter((ath) => {
                         return isAthleteFromSourcePhase(ath, sub.subName);
@@ -2171,7 +2202,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         )}
  
                                         {/* Transfer Header */}
-                                        {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && hasNextPhase(sub, group.subCategories) && (
+                                        {resultsMode !== 'entries' && resultsMode !== 'draws' && (hasTransfer || isQuartasOrSemis) && hasNextPhase(sub, group.subCategories) && (
                                           <th className="p-1.5 sm:p-3 w-24 text-center text-emerald-800 text-[10px] sm:text-xs ">Classif.</th>
                                         )}
                                       </tr>
@@ -2193,11 +2224,13 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                         return (
                                           <tr
                                             key={ath.plate}
-                                            className={`hover:bg-slate-50/50 transition-colors ${
+                                            onClick={() => onSelectAthlete?.(ath, group.baseName)}
+                                            className={`hover:bg-emerald-50/30 cursor-pointer transition-colors ${
                                               isTransferring && resultsMode !== 'draws'
                                                 ? 'bg-emerald-50/15 hover:bg-emerald-50/35 border-l-2 border-l-emerald-600' 
                                                 : ''
                                             }`}
+                                            title="Clique para abrir o painel do atleta"
                                           >
                                             {/* Rank Cell */}
                                             {resultsMode === 'draws' ? (
@@ -2504,7 +2537,7 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                             )}
  
                                             {/* Transfer Badge Cell */}
-                                            {resultsMode !== 'entries' && resultsMode !== 'draws' && hasTransfer && hasNextPhase(sub, group.subCategories) && (
+                                            {resultsMode !== 'entries' && resultsMode !== 'draws' && (hasTransfer || isQuartasOrSemis) && hasNextPhase(sub, group.subCategories) && (
                                               <td className="p-1.5 sm:p-3 text-center">
                                                 {ath.transfer ? (
                                                   <span 
@@ -2513,6 +2546,14 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                                   >
                                                     <ShieldCheck size={9} className="text-emerald-600 shrink-0 hidden sm:inline" />
                                                     {ath.transfer}
+                                                  </span>
+                                                ) : (isQuartasOrSemis && hasAnyNumericPlace && rankInt !== null && rankInt <= 4) ? (
+                                                  <span 
+                                                    className="inline-flex items-center gap-0.5 px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md font-bold font-mono text-[9px] sm:text-[10px] shadow-xxs"
+                                                    title={sub.subName.toLowerCase().includes('quarta') || sub.subName.toLowerCase().includes('1/4') ? 'Classificado para a Semifinal' : 'Classificado para a Final'}
+                                                  >
+                                                    <ShieldCheck size={9} className="text-emerald-600 shrink-0 hidden sm:inline" />
+                                                    {sub.subName.toLowerCase().includes('quarta') || sub.subName.toLowerCase().includes('1/4') ? 'SEMIFINAL' : 'FINAL'}
                                                   </span>
                                                 ) : (
                                                   <span className="text-slate-300">-</span>
@@ -2546,7 +2587,8 @@ export default function LiveResults({ event, isDashboard = false }: LiveResultsP
                                     return (
                                       <div
                                         key={ath.plate}
-                                        className={`p-4 rounded-2xl border transition-all shadow-xxs flex flex-col justify-between gap-3 relative overflow-hidden ${
+                                        onClick={() => onSelectAthlete?.(ath, group.baseName)}
+                                        className={`p-4 rounded-2xl border cursor-pointer hover:shadow-xs transition-all flex flex-col justify-between gap-3 relative overflow-hidden ${
                                           isFirst ? 'bg-gradient-to-br from-yellow-50/40 via-white to-white border-yellow-300/60 ring-1 ring-yellow-400/10' :
                                           isSecond ? 'bg-gradient-to-br from-slate-50/40 via-white to-white border-slate-300/60' :
                                           isThird ? 'bg-gradient-to-br from-amber-50/40 via-white to-white border-amber-300/60' :

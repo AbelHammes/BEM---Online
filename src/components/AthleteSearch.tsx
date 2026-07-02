@@ -4,6 +4,7 @@ import { Search, ShieldAlert, Award, FileSpreadsheet, Users, MapPin } from 'luci
 
 interface AthleteSearchProps {
   event: EventData;
+  onSelectAthlete?: (athlete: Athlete, categoryName: string) => void;
 }
 
 // Helper to extract base category name without the phase suffix
@@ -62,7 +63,7 @@ const getBaseCategoryName = (fullName: string): string => {
   }
 };
 
-export default function AthleteSearch({ event }: AthleteSearchProps) {
+export default function AthleteSearch({ event, onSelectAthlete }: AthleteSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedState, setSelectedState] = useState('ALL');
@@ -243,7 +244,9 @@ export default function AthleteSearch({ event }: AthleteSearchProps) {
             <div
               id={`athlete-card-${athlete.plate}`}
               key={`${categoryName}-${athlete.plate}`}
-              className="p-4 rounded-xl border border-gray-100 hover:border-emerald-200 bg-gray-50/50 hover:bg-white transition-all shadow-xxs hover:shadow-xs group"
+              onClick={() => onSelectAthlete?.(athlete, categoryName)}
+              className="p-4 rounded-xl border border-gray-100 hover:border-emerald-300 bg-gray-50/50 hover:bg-white cursor-pointer transition-all shadow-xxs hover:shadow-xs group"
+              title="Clique para abrir o painel do atleta"
             >
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">

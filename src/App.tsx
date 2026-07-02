@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RaceState, UserProfile } from './types';
+import { RaceState, UserProfile, Athlete } from './types';
 import { 
   Trophy, 
   Users, 
@@ -16,7 +16,8 @@ import {
   WifiOff, 
   RefreshCw, 
   AlertTriangle,
-  LayoutDashboard
+  LayoutDashboard,
+  X
 } from 'lucide-react';
 import LiveResults from './components/LiveResults';
 import AthleteSearch from './components/AthleteSearch';
@@ -42,6 +43,7 @@ export default function App() {
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [loginError, setLoginError] = useState<string>('');
+  const [selectedAthlete, setSelectedAthlete] = useState<{ athlete: Athlete; categoryName: string } | null>(null);
 
   // Auto-load state from local database if online, or local cache if offline
   const fetchRaceState = async () => {
@@ -464,7 +466,11 @@ export default function App() {
                 ${activeTab === 'results' ? 'lg:col-span-12 block' : ''}
                 ${(activeTab !== 'dashboard' && activeTab !== 'results') ? 'hidden' : ''}
               `}>
-                <LiveResults event={cleanState.event} isDashboard={activeTab === 'dashboard'} />
+                <LiveResults 
+                  event={cleanState.event} 
+                  isDashboard={activeTab === 'dashboard'} 
+                  onSelectAthlete={(athlete, categoryName) => setSelectedAthlete({ athlete, categoryName })}
+                />
               </div>
 
               {/* Sidebar Column or Secondary full-width columns */}
@@ -475,7 +481,10 @@ export default function App() {
                 
                 {/* Athlete Search Component */}
                 <div className={activeTab === 'athletes' ? 'block' : 'hidden'}>
-                  <AthleteSearch event={cleanState.event} />
+                  <AthleteSearch 
+                    event={cleanState.event} 
+                    onSelectAthlete={(athlete, categoryName) => setSelectedAthlete({ athlete, categoryName })}
+                  />
                 </div>
 
                 {/* Notifications Feed Component */}
@@ -593,6 +602,266 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Selected Athlete High-Fidelity Stats Modal Overlay */}
+      {selectedAthlete && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in"
+          onClick={() => setSelectedAthlete(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative animate-scale-up text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedAthlete(null)}
+              className="absolute right-4 top-4 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer transition-colors"
+              title="Fechar"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Header / Info Summary */}
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-600 text-white font-mono font-bold flex items-center justify-center text-sm shadow-md">
+                  #{selectedAthlete.athlete.plate}
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-bold text-gray-900 text-base">
+                      {selectedAthlete.athlete.firstName} {selectedAthlete.athlete.lastName}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 text-[10px] font-semibold">
+                      {selectedAthlete.categoryName}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-500 font-mono mt-1">
+                    CBC ID: {selectedAthlete.athlete.uciId || 'Ativo no BEM'} 
+                    {selectedAthlete.athlete.state && ` • UF: ${selectedAthlete.athlete.state}`}
+                    {selectedAthlete.athlete.club && ` • ${selectedAthlete.athlete.club}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Grid stats */}
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Stats 1: Registration Details */}
+                <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                  <h4 className="font-bold text-gray-800 text-xs flex items-center gap-1.5 mb-3">
+                    <Trophy size={14} className="text-amber-500" />
+                    Inscrição & Classificação
+                  </h4>
+                  <div className="space-y-2 text-xxs">
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-gray-500">Posição Oficial:</span>
+                      <span className="font-bold text-gray-900">
+                        {selectedAthlete.athlete.place ? `${selectedAthlete.athlete.place}º Lugar` : 'Classificação em aberto'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-gray-500">Pontos Acumulados (M-PTS):</span>
+                      <span className="font-bold text-emerald-700">
+                        {selectedAthlete.athlete.mpts ?? selectedAthlete.athlete.points ?? 'Não calculado'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-gray-500">Clube / Equipe:</span>
+                      <span className="font-semibold text-gray-800 truncate max-w-[150px]" title={selectedAthlete.athlete.club}>
+                        {selectedAthlete.athlete.club || 'Avulso'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-500">Patrocinador:</span>
+                      <span className="font-medium text-purple-700 italic truncate max-w-[150px]" title={selectedAthlete.athlete.sponsor}>
+                        {selectedAthlete.athlete.sponsor || 'Não listado'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stats 2: Gate Lane Draws */}
+                <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                  <h4 className="font-bold text-gray-800 text-xs flex items-center gap-1.5 mb-3">
+                    <Users size={14} className="text-blue-500" />
+                    Sorteios de Portão & Raias
+                  </h4>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-1.5 text-center text-[10px]">
+                      <div className="p-1.5 border rounded-lg bg-white shadow-xxs">
+                        <div className="text-[9px] text-gray-400 mb-0.5">Moto 1</div>
+                        <div className="font-mono font-bold text-gray-800">{selectedAthlete.athlete.m1Draw || '-'}</div>
+                      </div>
+                      <div className="p-1.5 border rounded-lg bg-white shadow-xxs">
+                        <div className="text-[9px] text-gray-400 mb-0.5">Moto 2</div>
+                        <div className="font-mono font-bold text-gray-800">{selectedAthlete.athlete.m2Draw || '-'}</div>
+                      </div>
+                      <div className="p-1.5 border rounded-lg bg-white shadow-xxs">
+                        <div className="text-[9px] text-gray-400 mb-0.5">Moto 3</div>
+                        <div className="font-mono font-bold text-gray-800">{selectedAthlete.athlete.m3Draw || '-'}</div>
+                      </div>
+                    </div>
+
+                    {/* Secondary Phases Draws if present */}
+                    {(selectedAthlete.athlete.quartasDraw || selectedAthlete.athlete.semiDraw || selectedAthlete.athlete.finalDraw) && (
+                      <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] pt-1.5">
+                        {selectedAthlete.athlete.quartasDraw && (
+                          <div className="p-1.5 border rounded-lg bg-white shadow-xxs border-emerald-100">
+                            <div className="text-[9px] text-emerald-600 font-bold mb-0.5">Quartas</div>
+                            <div className="font-mono font-bold text-gray-800">{selectedAthlete.athlete.quartasDraw}</div>
+                          </div>
+                        )}
+                        {selectedAthlete.athlete.semiDraw && (
+                          <div className="p-1.5 border rounded-lg bg-white shadow-xxs border-emerald-100">
+                            <div className="text-[9px] text-emerald-600 font-bold mb-0.5">Semi</div>
+                            <div className="font-mono font-bold text-gray-800">{selectedAthlete.athlete.semiDraw}</div>
+                          </div>
+                        )}
+                        {selectedAthlete.athlete.finalDraw && (
+                          <div className="p-1.5 border rounded-lg bg-white shadow-xxs border-amber-100">
+                            <div className="text-[9px] text-amber-600 font-bold mb-0.5">Final</div>
+                            <div className="font-mono font-bold text-gray-800">{selectedAthlete.athlete.finalDraw}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-[9px] text-gray-400 mt-1 text-center italic leading-tight">
+                      *Ex: '10: 3' indica Corrida 10 na Raia 3.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timing and Lap details */}
+              <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                <h4 className="font-bold text-gray-800 text-xs flex items-center gap-1.5 mb-3">
+                  <Activity size={14} className="text-emerald-600" />
+                  Histórico de Tempos de Volta & Reações
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xxs">
+                  <div className="space-y-2">
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-gray-500">Moto 1 Tempo / Reação:</span>
+                      <span className="font-mono font-bold text-gray-900">
+                        {selectedAthlete.athlete.m1Time ? `${selectedAthlete.athlete.m1Time}s` : '-'} | <span className="text-amber-600">{selectedAthlete.athlete.m1Reaction ? `${selectedAthlete.athlete.m1Reaction}s` : '-'}</span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-gray-500">Moto 2 Tempo / Reação:</span>
+                      <span className="font-mono font-bold text-gray-900">
+                        {selectedAthlete.athlete.m2Time ? `${selectedAthlete.athlete.m2Time}s` : '-'} | <span className="text-amber-600">{selectedAthlete.athlete.m2Reaction ? `${selectedAthlete.athlete.m2Reaction}s` : '-'}</span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-500">Moto 3 Tempo / Reação:</span>
+                      <span className="font-mono font-bold text-gray-900">
+                        {selectedAthlete.athlete.m3Time ? `${selectedAthlete.athlete.m3Time}s` : '-'} | <span className="text-amber-600">{selectedAthlete.athlete.m3Reaction ? `${selectedAthlete.athlete.m3Reaction}s` : '-'}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-gray-500">Quartas de Final (Tempo):</span>
+                      <span className="font-mono font-bold text-emerald-700">
+                        {selectedAthlete.athlete.fullQuartas || '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b border-slate-100">
+                      <span className="text-gray-500">Semifinal (Tempo):</span>
+                      <span className="font-mono font-bold text-emerald-700">
+                        {selectedAthlete.athlete.fullSemi || '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span className="text-gray-500">Grande Final (Tempo):</span>
+                      <span className="font-mono font-black text-amber-700">
+                        {selectedAthlete.athlete.fullFinal || '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Evolution text */}
+                {selectedAthlete.athlete.m1Time && selectedAthlete.athlete.m2Time && (
+                  <div className="mt-3 pt-2.5 border-t border-dashed border-slate-200 text-center text-emerald-600 flex items-center justify-center gap-1 text-[10px]">
+                    <Activity size={12} className="shrink-0 animate-pulse" />
+                    <span>
+                      Evolução de Performance: M1 para M2 mudou em{' '}
+                      <strong className="font-bold">
+                        {(((parseFloat(selectedAthlete.athlete.m1Time) - parseFloat(selectedAthlete.athlete.m2Time)) / parseFloat(selectedAthlete.athlete.m1Time)) * 100).toFixed(1)}%
+                      </strong>{' '}
+                      {parseFloat(selectedAthlete.athlete.m1Time) > parseFloat(selectedAthlete.athlete.m2Time) ? 'mais rápido' : 'mais lento'}.
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Progress Bar Graph */}
+              {selectedAthlete.athlete.m1Time && (
+                <div className="border-t border-slate-100 pt-4">
+                  <h4 className="font-bold text-gray-800 text-xs mb-3 flex items-center gap-1.5">
+                    <Activity size={14} className="text-emerald-600" />
+                    Gráfico Comparativo de Desempenho (Tempos de Volta)
+                  </h4>
+                  <div className="space-y-2.5">
+                    {/* Moto 1 */}
+                    {selectedAthlete.athlete.m1Time && (
+                      <div>
+                        <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                          <span>Tempo Moto 1</span>
+                          <span className="font-bold text-gray-900">{selectedAthlete.athlete.m1Time}s</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: '82%' }}></div>
+                        </div>
+                      </div>
+                    )}
+                    {/* Moto 2 */}
+                    {selectedAthlete.athlete.m2Time && (
+                      <div>
+                        <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                          <span>Tempo Moto 2</span>
+                          <span className="font-bold text-gray-900">{selectedAthlete.athlete.m2Time}s</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-600 rounded-full" style={{ width: '88%' }}></div>
+                        </div>
+                      </div>
+                    )}
+                    {/* Moto 3 */}
+                    {selectedAthlete.athlete.m3Time && (
+                      <div>
+                        <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                          <span>Tempo Moto 3</span>
+                          <span className="font-bold text-gray-900">{selectedAthlete.athlete.m3Time}s</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-700 rounded-full" style={{ width: '85%' }}></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setSelectedAthlete(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl cursor-pointer transition-colors text-xxs"
+              >
+                Fechar Painel do Piloto
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );
